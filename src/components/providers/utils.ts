@@ -14,7 +14,12 @@ import {
   withoutDisableAllModelsRule,
 } from '@/utils/providerRules';
 import { buildCandidateUsageSourceIds, type KeyStatBucket, type KeyStats } from '@/utils/usage';
-import type { AmpcodeFormState, AmpcodeUpstreamApiKeyEntry, ModelEntry, ProviderKeyEntryDraft } from './types';
+import type {
+  AmpcodeFormState,
+  AmpcodeUpstreamApiKeyEntry,
+  ModelEntry,
+  ProviderKeyEntryDraft,
+} from './types';
 
 export {
   DISABLE_ALL_MODELS_RULE,
@@ -225,13 +230,56 @@ export type ProviderKeyTestStatus = {
   message: string;
 };
 
+export const PROVIDER_KEY_TEST_BATCH_CONCURRENCY = 4;
+
+export const runProviderKeyTestBatch = async (
+  indexes: number[],
+  runTest: (index: number) => Promise<boolean>,
+  concurrency: number = PROVIDER_KEY_TEST_BATCH_CONCURRENCY
+): Promise<boolean[]> => {
+  if (indexes.length === 0) {
+    return [];
+  }
+
+  const workerCount = Math.min(
+    indexes.length,
+    Math.max(
+      1,
+      Math.floor(Number.isFinite(concurrency) ? concurrency : PROVIDER_KEY_TEST_BATCH_CONCURRENCY)
+    )
+  );
+  const results = new Array<boolean>(indexes.length).fill(false);
+  let cursor = 0;
+
+  const runWorker = async () => {
+    for (;;) {
+      const current = cursor;
+      cursor += 1;
+      if (current >= indexes.length) {
+        return;
+      }
+
+      try {
+        results[current] = await runTest(indexes[current]!);
+      } catch {
+        results[current] = false;
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, runWorker));
+  return results;
+};
+
 const normalizeDraftHeaderEntries = (headers: HeaderEntry[] | undefined) =>
   normalizeHeaderEntries(headers ?? []).map((entry) => ({
     key: entry.key.trim(),
     value: entry.value.trim(),
   }));
 
-const buildKeyEntryIdentity = (entry: Pick<ProviderKeyEntryDraft, 'apiKey' | 'proxyUrl' | 'headers'>) =>
+const buildKeyEntryIdentity = (
+  entry: Pick<ProviderKeyEntryDraft, 'apiKey' | 'proxyUrl' | 'headers'>
+) =>
   JSON.stringify({
     apiKey: String(entry.apiKey ?? '').trim(),
     proxyUrl: String(entry.proxyUrl ?? '').trim(),

@@ -20,6 +20,7 @@ import {
   refreshMonitorProviderMeta,
   remapProviderKeyTestStatuses,
   resolveConnectivityErrorMessage,
+  runProviderKeyTestBatch,
   runProviderConnectivityTest,
 } from '@/components/providers';
 import { modelsApi, providersApi } from '@/services/api';
@@ -474,7 +475,7 @@ export function AiProvidersCodexEditPage() {
       })),
     }));
     try {
-      const results = await Promise.all(validIndexes.map((index) => runSingleKeyTest(index)));
+      const results = await runProviderKeyTestBatch(validIndexes, runSingleKeyTest);
       const successCount = results.filter(Boolean).length;
       const failCount = validIndexes.length - successCount;
       if (failCount === 0) {
@@ -617,7 +618,10 @@ export function AiProvidersCodexEditPage() {
               setForm={(updater) => {
                 setForm((prev) => {
                   const next = updater(prev);
-                  const connectivityChanged = haveProviderKeyConnectivityChanged(prev.keyEntries, next.keyEntries);
+                  const connectivityChanged = haveProviderKeyConnectivityChanged(
+                    prev.keyEntries,
+                    next.keyEntries
+                  );
                   const structureChanged = prev.keyEntries.length !== next.keyEntries.length;
 
                   if (connectivityChanged) {

@@ -13,6 +13,7 @@ import {
   haveProviderKeyConnectivityChanged,
   remapProviderKeyTestStatuses,
   resolveConnectivityErrorMessage,
+  runProviderKeyTestBatch,
   runProviderConnectivityTest,
 } from '@/components/providers';
 import type { ProviderGroupFormState } from '@/components/providers';
@@ -67,7 +68,13 @@ export function AiProvidersOpenAIEditPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleBack]);
 
-  const canSave = !disableControls && !loading && !saving && !invalidIndexParam && !invalidIndex && !isTestingKeys;
+  const canSave =
+    !disableControls &&
+    !loading &&
+    !saving &&
+    !invalidIndexParam &&
+    !invalidIndex &&
+    !isTestingKeys;
 
   const connectivityConfigSignature = useMemo(() => {
     const headersSignature = form.headers
@@ -118,7 +125,10 @@ export function AiProvidersOpenAIEditPage() {
           apiKey: keyEntry?.apiKey,
         })
       ) {
-        setDraftKeyTestStatus(keyIndex, { status: 'error', message: t('notification.openai_test_key_required') });
+        setDraftKeyTestStatus(keyIndex, {
+          status: 'error',
+          message: t('notification.openai_test_key_required'),
+        });
         return false;
       }
 
@@ -222,7 +232,7 @@ export function AiProvidersOpenAIEditPage() {
     resetDraftKeyTestStatuses(form.apiKeyEntries.length);
 
     try {
-      const results = await Promise.all(validKeyIndexes.map((index) => runSingleKeyTest(index)));
+      const results = await runProviderKeyTestBatch(validKeyIndexes, runSingleKeyTest);
 
       const successCount = results.filter(Boolean).length;
       const failCount = validKeyIndexes.length - successCount;
@@ -238,7 +248,10 @@ export function AiProvidersOpenAIEditPage() {
         setTestMessage(message);
         showNotification(message, 'error');
       } else {
-        const message = t('ai_providers.openai_test_all_partial', { success: successCount, failed: failCount });
+        const message = t('ai_providers.openai_test_all_partial', {
+          success: successCount,
+          failed: failCount,
+        });
         setTestStatus('error');
         setTestMessage(message);
         showNotification(message, 'warning');
@@ -270,27 +283,30 @@ export function AiProvidersOpenAIEditPage() {
     navigate('models');
   }, [form.baseUrl, navigate, showNotification, t]);
 
-  const sharedForm = useMemo<ProviderGroupFormState>(() => ({
-    name: form.name,
-    priority: form.priority,
-    prefix: form.prefix ?? '',
-    baseUrl: form.baseUrl,
-    headers: form.headers,
-    excludedText: form.excludedText,
-    testModel,
-    modelEntries: form.modelEntries,
-    keyEntries: (form.apiKeyEntries.length
-      ? form.apiKeyEntries
-      : [{ apiKey: '', proxyUrl: '', headers: undefined }]
-    ).map((entry, index) => ({
-      apiKey: String(entry.apiKey ?? ''),
-      proxyUrl: String(entry.proxyUrl ?? ''),
-      headers: headersToEntries(entry.headers),
-      enabled: !entry.disabled,
-      testStatus: keyTestStatuses[index]?.status ?? 'idle',
-      testMessage: keyTestStatuses[index]?.message ?? '',
-    })),
-  }), [form, keyTestStatuses, testModel]);
+  const sharedForm = useMemo<ProviderGroupFormState>(
+    () => ({
+      name: form.name,
+      priority: form.priority,
+      prefix: form.prefix ?? '',
+      baseUrl: form.baseUrl,
+      headers: form.headers,
+      excludedText: form.excludedText,
+      testModel,
+      modelEntries: form.modelEntries,
+      keyEntries: (form.apiKeyEntries.length
+        ? form.apiKeyEntries
+        : [{ apiKey: '', proxyUrl: '', headers: undefined }]
+      ).map((entry, index) => ({
+        apiKey: String(entry.apiKey ?? ''),
+        proxyUrl: String(entry.proxyUrl ?? ''),
+        headers: headersToEntries(entry.headers),
+        enabled: !entry.disabled,
+        testStatus: keyTestStatuses[index]?.status ?? 'idle',
+        testMessage: keyTestStatuses[index]?.message ?? '',
+      })),
+    }),
+    [form, keyTestStatuses, testModel]
+  );
 
   const setSharedForm = useCallback(
     (action: (prev: ProviderGroupFormState) => ProviderGroupFormState) => {
@@ -315,7 +331,9 @@ export function AiProvidersOpenAIEditPage() {
         status: entry.testStatus,
         message: entry.testMessage,
       }));
-      setDraftKeyTestStatuses(remapProviderKeyTestStatuses(previousEntries, visibleStatuses, nextEntries));
+      setDraftKeyTestStatuses(
+        remapProviderKeyTestStatuses(previousEntries, visibleStatuses, nextEntries)
+      );
 
       if (structureChanged) {
         setTestStatus('idle');
