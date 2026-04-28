@@ -105,17 +105,31 @@ const buildAbortSignal = (config?: ApiCallStreamConfig) => {
   const controller = new AbortController();
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-  const handleExternalAbort = () => controller.abort();
+  const abortWithReason = (reason: unknown) => {
+    if (controller.signal.aborted) {
+      return;
+    }
+    controller.abort(reason);
+  };
+
+  const timeoutReason =
+    typeof DOMException === 'function'
+      ? new DOMException('Request timed out', 'TimeoutError')
+      : new Error('Request timed out');
+
+  const handleExternalAbort = () => {
+    abortWithReason(config?.signal?.reason ?? new Error('Request aborted'));
+  };
   if (config?.signal) {
     if (config.signal.aborted) {
-      controller.abort();
+      handleExternalAbort();
     } else {
       config.signal.addEventListener('abort', handleExternalAbort, { once: true });
     }
   }
 
   if (config?.timeout && Number.isFinite(config.timeout) && config.timeout > 0) {
-    timeoutId = setTimeout(() => controller.abort(), config.timeout);
+    timeoutId = setTimeout(() => abortWithReason(timeoutReason), config.timeout);
   }
 
   return {

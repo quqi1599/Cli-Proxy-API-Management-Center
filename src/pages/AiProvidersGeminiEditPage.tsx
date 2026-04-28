@@ -20,6 +20,7 @@ import {
   haveProviderKeyConnectivityChanged,
   remapProviderKeyTestStatuses,
   resolveConnectivityErrorMessage,
+  runProviderKeyTestBatch,
   runProviderConnectivityTest,
 } from '@/components/providers';
 import { modelsApi, providersApi } from '@/services/api';
@@ -54,7 +55,9 @@ const parseIndexParam = (value: string | undefined) => {
 };
 
 const stripGeminiModelResourceName = (value: string) => {
-  return String(value ?? '').trim().replace(/^\/?models\//i, '');
+  return String(value ?? '')
+    .trim()
+    .replace(/^\/?models\//i, '');
 };
 
 const normalizeGeminiGroupForm = (form: ProviderGroupFormState): ProviderGroupFormState => ({
@@ -94,7 +97,9 @@ export function AiProvidersGeminiEditPage() {
   const [baselineSignature, setBaselineSignature] = useState(() =>
     buildProviderGroupEditSignature(buildEmptyForm())
   );
-  const [summaryStatus, setSummaryStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [summaryStatus, setSummaryStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(
+    'idle'
+  );
   const [summaryMessage, setSummaryMessage] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [streamEnabled, setStreamEnabled] = useState(true);
@@ -132,7 +137,9 @@ export function AiProvidersGeminiEditPage() {
   const invalidIndex = editIndex !== null && !initialGroup;
 
   const title =
-    editIndex !== null ? t('ai_providers.gemini_edit_modal_title') : t('ai_providers.gemini_add_modal_title');
+    editIndex !== null
+      ? t('ai_providers.gemini_edit_modal_title')
+      : t('ai_providers.gemini_add_modal_title');
 
   const handleBack = useCallback(() => {
     const state = location.state as LocationState;
@@ -294,7 +301,10 @@ export function AiProvidersGeminiEditPage() {
       });
 
       if (addedCount > 0) {
-        showNotification(t('ai_providers.gemini_models_fetch_added', { count: addedCount }), 'success');
+        showNotification(
+          t('ai_providers.gemini_models_fetch_added', { count: addedCount }),
+          'success'
+        );
       }
     },
     [showNotification, t]
@@ -306,7 +316,8 @@ export function AiProvidersGeminiEditPage() {
     setModelDiscoveryError('');
 
     const headerObject = buildHeaderObject(form.headers);
-    const firstApiKey = form.keyEntries.find((entry) => entry.apiKey.trim())?.apiKey.trim() || undefined;
+    const firstApiKey =
+      form.keyEntries.find((entry) => entry.apiKey.trim())?.apiKey.trim() || undefined;
 
     try {
       const list = await modelsApi.fetchGeminiModelsViaApiCall(
@@ -392,7 +403,9 @@ export function AiProvidersGeminiEditPage() {
   };
 
   const handleApplyDiscoveredModels = () => {
-    const selectedModels = discoveredModels.filter((model) => modelDiscoverySelected.has(model.name));
+    const selectedModels = discoveredModels.filter((model) =>
+      modelDiscoverySelected.has(model.name)
+    );
     if (selectedModels.length) {
       mergeDiscoveredModels(selectedModels);
     }
@@ -416,7 +429,9 @@ export function AiProvidersGeminiEditPage() {
     async (keyIndex: number) => {
       const modelName =
         stripGeminiModelResourceName(form.testModel) ||
-        stripGeminiModelResourceName(form.modelEntries.find((entry) => entry.name.trim())?.name || '');
+        stripGeminiModelResourceName(
+          form.modelEntries.find((entry) => entry.name.trim())?.name || ''
+        );
 
       if (!modelName) {
         const message = t('notification.gemini_test_model_required');
@@ -468,7 +483,16 @@ export function AiProvidersGeminiEditPage() {
         return false;
       }
     },
-    [form.baseUrl, form.headers, form.keyEntries, form.modelEntries, form.testModel, showNotification, streamEnabled, t]
+    [
+      form.baseUrl,
+      form.headers,
+      form.keyEntries,
+      form.modelEntries,
+      form.testModel,
+      showNotification,
+      streamEnabled,
+      t,
+    ]
   );
 
   const testOne = useCallback(
@@ -512,7 +536,7 @@ export function AiProvidersGeminiEditPage() {
     }));
 
     try {
-      const results = await Promise.all(validIndexes.map((index) => runSingleKeyTest(index)));
+      const results = await runProviderKeyTestBatch(validIndexes, runSingleKeyTest);
       const successCount = results.filter(Boolean).length;
       const failCount = validIndexes.length - successCount;
 
@@ -571,7 +595,9 @@ export function AiProvidersGeminiEditPage() {
       updateConfigValue('gemini-api-key', nextList);
       clearCache('gemini-api-key');
       showNotification(
-        editIndex !== null ? t('notification.gemini_key_updated') : t('notification.gemini_key_added'),
+        editIndex !== null
+          ? t('notification.gemini_key_updated')
+          : t('notification.gemini_key_added'),
         'success'
       );
       allowNextNavigation();
@@ -605,7 +631,8 @@ export function AiProvidersGeminiEditPage() {
     updateConfigValue,
   ]);
 
-  const canSave = !disableControls && !saving && !loading && !invalidIndexParam && !invalidIndex && !isTesting;
+  const canSave =
+    !disableControls && !saving && !loading && !invalidIndexParam && !invalidIndex && !isTesting;
 
   return (
     <SecondaryScreenShell
@@ -653,7 +680,10 @@ export function AiProvidersGeminiEditPage() {
               setForm={(updater) => {
                 setForm((prev) => {
                   const next = updater(prev);
-                  const connectivityChanged = haveProviderKeyConnectivityChanged(prev.keyEntries, next.keyEntries);
+                  const connectivityChanged = haveProviderKeyConnectivityChanged(
+                    prev.keyEntries,
+                    next.keyEntries
+                  );
                   const structureChanged = prev.keyEntries.length !== next.keyEntries.length;
 
                   if (connectivityChanged) {
@@ -733,7 +763,9 @@ export function AiProvidersGeminiEditPage() {
               }
             >
               <div className={styles.openaiModelsContent}>
-                <div className={styles.sectionHint}>{t('ai_providers.gemini_models_fetch_hint')}</div>
+                <div className={styles.sectionHint}>
+                  {t('ai_providers.gemini_models_fetch_hint')}
+                </div>
                 <div className={styles.openaiModelsEndpointSection}>
                   <label className={styles.openaiModelsEndpointLabel}>
                     {t('ai_providers.gemini_models_fetch_url_label')}
@@ -764,11 +796,17 @@ export function AiProvidersGeminiEditPage() {
                 />
                 {modelDiscoveryError && <div className="error-box">{modelDiscoveryError}</div>}
                 {modelDiscoveryFetching ? (
-                  <div className={styles.sectionHint}>{t('ai_providers.gemini_models_fetch_loading')}</div>
+                  <div className={styles.sectionHint}>
+                    {t('ai_providers.gemini_models_fetch_loading')}
+                  </div>
                 ) : discoveredModels.length === 0 ? (
-                  <div className={styles.sectionHint}>{t('ai_providers.gemini_models_fetch_empty')}</div>
+                  <div className={styles.sectionHint}>
+                    {t('ai_providers.gemini_models_fetch_empty')}
+                  </div>
                 ) : discoveredModelsFiltered.length === 0 ? (
-                  <div className={styles.sectionHint}>{t('ai_providers.gemini_models_search_empty')}</div>
+                  <div className={styles.sectionHint}>
+                    {t('ai_providers.gemini_models_search_empty')}
+                  </div>
                 ) : (
                   <div className={styles.modelDiscoveryList}>
                     {discoveredModelsFiltered.map((model) => {

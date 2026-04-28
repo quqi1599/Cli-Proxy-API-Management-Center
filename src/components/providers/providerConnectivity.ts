@@ -49,7 +49,9 @@ const mergeHeaders = (...inputs: HeaderInput[]) => {
   inputs.forEach((input) => {
     const headers = buildHeaderObject(input);
     Object.entries(headers).forEach(([key, value]) => {
-      const existingKey = Object.keys(merged).find((currentKey) => currentKey.toLowerCase() === key.toLowerCase());
+      const existingKey = Object.keys(merged).find(
+        (currentKey) => currentKey.toLowerCase() === key.toLowerCase()
+      );
       if (existingKey) {
         delete merged[existingKey];
       }
@@ -68,7 +70,9 @@ const buildGeminiGenerateEndpoint = (baseUrl: string, model: string) => {
   let trimmed = normalized.replace(/\/+$/g, '');
   trimmed = trimmed.replace(/\/v1beta\/models\/.*$/i, '');
   trimmed = trimmed.replace(/\/v1beta(?:\/.*)?$/i, '');
-  const normalizedModel = String(model ?? '').trim().replace(/^\/?models\//i, '');
+  const normalizedModel = String(model ?? '')
+    .trim()
+    .replace(/^\/?models\//i, '');
   if (!normalizedModel) return '';
   return `${trimmed}/v1beta/models/${normalizedModel}:streamGenerateContent?alt=sse`;
 };
@@ -184,55 +188,44 @@ const runStreamingConnectivityTest = async (input: {
   let responseHeaders: Record<string, string[]> = {};
   let responseBody = '';
   let sawSuccessChunk = false;
-  const controller = new AbortController();
 
-  try {
-    await apiCallApi.requestStream(
-      {
-        method: 'POST',
-        url: input.url,
-        header: input.header,
-        proxy: input.proxy,
-        data: input.data,
-        stream: true,
-      },
-      (event) => {
-        if (event.type === 'response') {
-          responseStatus = Number(event.statusCode ?? 0);
-          responseHeaders = event.header ?? {};
-          return;
+  await apiCallApi.requestStream(
+    {
+      method: 'POST',
+      url: input.url,
+      header: input.header,
+      proxy: input.proxy,
+      data: input.data,
+      stream: true,
+    },
+    (event) => {
+      if (event.type === 'response') {
+        responseStatus = Number(event.statusCode ?? 0);
+        responseHeaders = event.header ?? {};
+        return;
+      }
+      if (event.type === 'chunk') {
+        const chunk = String(event.chunk ?? '');
+        if (!chunk) return;
+        responseBody += chunk;
+        const errorMessage = detectErrorFromStreamText(responseBody);
+        if (errorMessage) throw new Error(errorMessage);
+        if (
+          !sawSuccessChunk &&
+          responseStatus >= 200 &&
+          responseStatus < 300 &&
+          responseBody.trim()
+        ) {
+          sawSuccessChunk = true;
         }
-        if (event.type === 'chunk') {
-          const chunk = String(event.chunk ?? '');
-          if (!chunk) return;
-          responseBody += chunk;
-          const errorMessage = detectErrorFromStreamText(responseBody);
-          if (errorMessage) throw new Error(errorMessage);
-          if (
-            !sawSuccessChunk &&
-            responseStatus >= 200 &&
-            responseStatus < 300 &&
-            responseBody.trim()
-          ) {
-            sawSuccessChunk = true;
-            controller.abort();
-          }
-          return;
-        }
-        if (event.type === 'error') {
-          throw new Error(String(event.error ?? 'Request failed'));
-        }
-      },
-      { timeout: TEST_TIMEOUT_MS, signal: controller.signal }
-    );
-  } catch (err) {
-    const aborted =
-      err instanceof Error &&
-      (err.name === 'AbortError' || err.message.toLowerCase().includes('aborted'));
-    if (!(aborted && sawSuccessChunk)) {
-      throw err;
-    }
-  }
+        return;
+      }
+      if (event.type === 'error') {
+        throw new Error(String(event.error ?? 'Request failed'));
+      }
+    },
+    { timeout: TEST_TIMEOUT_MS }
+  );
 
   if (sawSuccessChunk) {
     return;
@@ -266,11 +259,15 @@ export const hasProviderConnectivityAuth = (
   const apiKey = String(input.apiKey ?? '').trim();
 
   if (provider === 'claude') {
-    return Boolean(apiKey || hasHeader(headers, 'x-api-key') || resolveBearerTokenFromAuthorization(headers));
+    return Boolean(
+      apiKey || hasHeader(headers, 'x-api-key') || resolveBearerTokenFromAuthorization(headers)
+    );
   }
 
   if (provider === 'gemini') {
-    return Boolean(apiKey || hasHeader(headers, 'x-goog-api-key') || hasHeader(headers, 'authorization'));
+    return Boolean(
+      apiKey || hasHeader(headers, 'x-goog-api-key') || hasHeader(headers, 'authorization')
+    );
   }
 
   return Boolean(apiKey || hasHeader(headers, 'authorization'));
@@ -404,7 +401,11 @@ export async function runProviderConnectivityTest(input: {
     return;
   }
 
-  const { endpoint, data: requestData, invalidEndpointMessage } = buildOpenAIStyleConnectivityRequest({
+  const {
+    endpoint,
+    data: requestData,
+    invalidEndpointMessage,
+  } = buildOpenAIStyleConnectivityRequest({
     provider,
     baseUrl: input.baseUrl,
     testModel: input.testModel,
@@ -460,7 +461,16 @@ export const resolveConnectivityErrorMessage = (
     typeof err === 'object' && err !== null && 'code' in err
       ? String((err as { code?: string }).code)
       : '';
-  const isTimeout = errorCode === 'ECONNABORTED' || message.toLowerCase().includes('timeout');
+  const lowerMessage = message.toLowerCase();
+  const isAbort =
+    errorCode === 'ERR_CANCELED' ||
+    lowerMessage.includes('abort') ||
+    lowerMessage.includes('signal is aborted');
+  const isTimeout =
+    errorCode === 'ECONNABORTED' ||
+    lowerMessage.includes('timeout') ||
+    lowerMessage.includes('timed out') ||
+    isAbort;
   if (!isTimeout) {
     return message;
   }

@@ -14,6 +14,7 @@ import {
   haveProviderKeyConnectivityChanged,
   remapProviderKeyTestStatuses,
   resolveConnectivityErrorMessage,
+  runProviderKeyTestBatch,
   runProviderConnectivityTest,
 } from '@/components/providers';
 import { parseTextList } from '@/components/providers/utils';
@@ -288,7 +289,7 @@ export function AiProvidersClaudeEditPage() {
     }));
 
     try {
-      const results = await Promise.all(validIndexes.map((index) => runSingleKeyTest(index)));
+      const results = await runProviderKeyTestBatch(validIndexes, runSingleKeyTest);
       const successCount = results.filter(Boolean).length;
       const failCount = validIndexes.length - successCount;
       const message =
@@ -377,7 +378,10 @@ export function AiProvidersClaudeEditPage() {
             }}
             setForm={(action) => {
               const next = typeof action === 'function' ? action(form) : action;
-              const connectivityChanged = haveProviderKeyConnectivityChanged(form.keyEntries, next.keyEntries);
+              const connectivityChanged = haveProviderKeyConnectivityChanged(
+                form.keyEntries,
+                next.keyEntries
+              );
               const structureChanged = form.keyEntries.length !== next.keyEntries.length;
 
               setForm(() => {
