@@ -9,6 +9,7 @@ export type ContentAuditReviewLabel =
 
 export interface ContentAuditStatus {
   enabled: boolean;
+  audit_only: boolean;
   ready: boolean;
   error?: string;
   policy_version?: string;

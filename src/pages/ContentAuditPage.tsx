@@ -239,17 +239,32 @@ export function ContentAuditPage() {
       <section className={styles.statusStrip} aria-label={t('content_audit.status_title')}>
         <div className={styles.statusPrimary}>
           <span
-            className={`${styles.statusDot} ${status?.ready && status.enabled ? styles.statusOn : styles.statusOff}`}
+            className={`${styles.statusDot} ${
+              status?.ready && status.enabled
+                ? status.audit_only
+                  ? styles.statusObserve
+                  : styles.statusOn
+                : styles.statusOff
+            }`}
           />
           <div>
             <strong>
               {status?.enabled
                 ? status.ready
-                  ? t('content_audit.status_active')
+                  ? status.audit_only
+                    ? t('content_audit.status_observe')
+                    : t('content_audit.status_active')
                   : t('content_audit.status_error')
                 : t('content_audit.status_disabled')}
             </strong>
-            <span>{status?.error || t('content_audit.status_scope')}</span>
+            <span>
+              {status?.error ||
+                t(
+                  status?.audit_only
+                    ? 'content_audit.status_observe_scope'
+                    : 'content_audit.status_scope'
+                )}
+            </span>
           </div>
         </div>
         <div className={styles.statusMetric}>
