@@ -1,23 +1,60 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeOpenAIProvider } from '../src/services/api/transformers.ts';
-import { buildOpenAIProviderFromForm, buildOpenAIProviderCard } from '../src/components/providers/groupedProviderUtils.ts';
+import {
+  buildOpenAIProviderFromForm,
+  buildOpenAIProviderCard,
+} from '../src/components/providers/groupedProviderUtils.ts';
 import type { OpenAIFormState } from '../src/components/providers/types.ts';
-import { buildCandidateUsageSourceIds, EMPTY_STATUS_BAR } from '../src/utils/usage.ts';
+import {
+  blocksToStatusBarData,
+  buildCandidateUsageSourceIds,
+  EMPTY_STATUS_BAR,
+} from '../src/utils/usage.ts';
 
 test('normalizeOpenAIProvider preserves api key disabled flags', () => {
   const provider = normalizeOpenAIProvider({
     name: 'demo',
     'base-url': 'https://example.com/v1',
+    'auth-index': 'provider-auth',
     'api-key-entries': [
-      { 'api-key': 'sk-a', disabled: true },
-      { 'api-key': 'sk-b', disabled: false },
+      { 'api-key': 'sk-a', 'auth-index': 'auth-a', disabled: true },
+      { 'api-key': 'sk-b', auth_index: 'auth-b', disabled: false },
     ],
   });
 
   assert.ok(provider);
+  assert.equal(provider.authIndex, 'provider-auth');
+  assert.equal(provider.apiKeyEntries[0]?.authIndex, 'auth-a');
+  assert.equal(provider.apiKeyEntries[1]?.authIndex, 'auth-b');
   assert.equal(provider.apiKeyEntries[0]?.disabled, true);
   assert.equal(provider.apiKeyEntries[1]?.disabled, false);
+});
+
+test('buildOpenAIProviderCard prefers stable per-key auth-index stats', () => {
+  const authStatus = {
+    ...EMPTY_STATUS_BAR,
+    successRate: 90,
+    totalSuccess: 9,
+    totalFailure: 1,
+  };
+  const card = buildOpenAIProviderCard(
+    {
+      name: 'demo',
+      baseUrl: 'https://example.com/v1',
+      apiKeyEntries: [{ apiKey: 'rotated-secret', authIndex: 'stable-auth' }],
+    },
+    0,
+    {
+      bySource: {},
+      byAuthIndex: { 'stable-auth': { success: 9, failure: 1 } },
+    },
+    new Map([['stable-auth', authStatus]])
+  );
+
+  assert.equal(card.success, 9);
+  assert.equal(card.failure, 1);
+  assert.equal(card.statusData, authStatus);
 });
 
 test('buildOpenAIProviderFromForm persists disabled api keys', () => {
@@ -107,22 +144,8 @@ test('buildOpenAIProviderCard keeps historical stats when part of keys are disab
       byAuthIndex: {},
     },
     new Map([
-      [
-        disabledKeySource,
-        {
-          ...EMPTY_STATUS_BAR,
-          totalSuccess: 3,
-          totalFailure: 1,
-        },
-      ],
-      [
-        enabledKeySource,
-        {
-          ...EMPTY_STATUS_BAR,
-          totalSuccess: 2,
-          totalFailure: 4,
-        },
-      ],
+      [disabledKeySource, blocksToStatusBarData([{ success: 3, failure: 1 }], 0, 1)],
+      [enabledKeySource, blocksToStatusBarData([{ success: 2, failure: 4 }], 0, 1)],
     ])
   );
 
@@ -155,22 +178,8 @@ test('buildOpenAIProviderCard keeps historical stats when all keys are disabled'
       byAuthIndex: {},
     },
     new Map([
-      [
-        firstKeySource,
-        {
-          ...EMPTY_STATUS_BAR,
-          totalSuccess: 1,
-          totalFailure: 2,
-        },
-      ],
-      [
-        secondKeySource,
-        {
-          ...EMPTY_STATUS_BAR,
-          totalSuccess: 4,
-          totalFailure: 3,
-        },
-      ],
+      [firstKeySource, blocksToStatusBarData([{ success: 1, failure: 2 }], 0, 1)],
+      [secondKeySource, blocksToStatusBarData([{ success: 4, failure: 3 }], 0, 1)],
     ])
   );
 

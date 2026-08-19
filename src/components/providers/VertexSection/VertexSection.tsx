@@ -98,13 +98,15 @@ export function VertexSection({
             </Button>
           )}
           renderContent={(item, index) => {
-            const stats = getStatsBySource(item.apiKey, keyStats, item.prefix);
+            const stats = getStatsBySource(item.apiKey, keyStats, item.prefix, item.authIndex);
             const configDisabled = hasDisableAllModelsRule(item.excludedModels);
             const excludedModels = item.excludedModels ?? [];
             const totalRequests = getTotalRequests(stats);
             const statusData = lookupStatusBar(
               statusBarBySource,
-              buildCandidateUsageSourceIds({ apiKey: item.apiKey, prefix: item.prefix })
+              item.authIndex && statusBarBySource.has(item.authIndex)
+                ? [item.authIndex]
+                : buildCandidateUsageSourceIds({ apiKey: item.apiKey, prefix: item.prefix })
             );
             const mappingSummary = summarizeMappings(
               (item.models ?? []).map((model) => ({

@@ -1,12 +1,56 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildProviderGroupCard,
   buildProviderConfigsFromGroupForm,
   buildProviderGroupFormState,
   findProviderGroupBySignature,
   groupProviderConfigs,
 } from '../src/components/providers/groupedProviderUtils.ts';
+import { normalizeConfigResponse } from '../src/services/api/transformers.ts';
 import type { GeminiKeyConfig, ProviderKeyConfig } from '../src/types/provider.ts';
+import { EMPTY_STATUS_BAR } from '../src/utils/usage.ts';
+
+test('normalizeConfigResponse preserves auth indexes for grouped providers', () => {
+  const config = normalizeConfigResponse({
+    'gemini-api-key': [{ 'api-key': 'gemini-key', 'auth-index': 'gemini-auth' }],
+    'codex-api-key': [{ 'api-key': 'codex-key', auth_index: 'codex-auth' }],
+    'claude-api-key': [{ 'api-key': 'claude-key', authIndex: 'claude-auth' }],
+  });
+
+  assert.equal(config.geminiApiKeys?.[0]?.authIndex, 'gemini-auth');
+  assert.equal(config.codexApiKeys?.[0]?.authIndex, 'codex-auth');
+  assert.equal(config.claudeApiKeys?.[0]?.authIndex, 'claude-auth');
+});
+
+test('buildProviderGroupCard prefers stable auth-index stats and status blocks', () => {
+  const group = groupProviderConfigs('codex', [
+    {
+      apiKey: 'rotated-secret',
+      authIndex: 'stable-auth',
+      baseUrl: 'https://example.com',
+    },
+  ] satisfies ProviderKeyConfig[])[0]!;
+  const authStatus = {
+    ...EMPTY_STATUS_BAR,
+    successRate: 80,
+    totalSuccess: 8,
+    totalFailure: 2,
+  };
+
+  const card = buildProviderGroupCard(
+    group,
+    {
+      bySource: {},
+      byAuthIndex: { 'stable-auth': { success: 8, failure: 2 } },
+    },
+    new Map([['stable-auth', authStatus]])
+  );
+
+  assert.equal(card.success, 8);
+  assert.equal(card.failure, 2);
+  assert.equal(card.statusData, authStatus);
+});
 
 test('groupProviderConfigs splits gemini groups when headers differ', () => {
   const groups = groupProviderConfigs('gemini', [
@@ -129,8 +173,8 @@ test('buildProviderConfigsFromGroupForm preserves one group with multiple keys a
   assert.equal(rebuilt.length, 2);
   assert.equal(rebuilt[0]?.proxyUrl, 'http://proxy-a');
   assert.equal(rebuilt[1]?.proxyUrl, 'http://proxy-b');
-  assert.deepEqual(rebuilt.map((entry) => entry.headers), [
-    { 'X-Env': 'a' },
-    { 'X-Env': 'a' },
-  ]);
+  assert.deepEqual(
+    rebuilt.map((entry) => entry.headers),
+    [{ 'X-Env': 'a' }, { 'X-Env': 'a' }]
+  );
 });

@@ -73,10 +73,12 @@ export function ProviderGroupEditForm({
       form.keyEntries.map((entry) =>
         lookupStatusBar(
           statusBarBySource,
-          buildCandidateUsageSourceIds({
-            apiKey: entry.apiKey,
-            prefix: form.prefix,
-          })
+          entry.authIndex && statusBarBySource.has(entry.authIndex)
+            ? [entry.authIndex]
+            : buildCandidateUsageSourceIds({
+                apiKey: entry.apiKey,
+                prefix: form.prefix,
+              })
         )
       ),
     [form.keyEntries, form.prefix, statusBarBySource]
@@ -117,8 +119,12 @@ export function ProviderGroupEditForm({
         disabled={disabled || testing}
       />
       <Input
-        label={t(`ai_providers.${providerKey}_add_modal_url_label`, { defaultValue: t('common.base_url') })}
-        placeholder={t(`ai_providers.${providerKey}_base_url_placeholder`, { defaultValue: t('common.base_url') })}
+        label={t(`ai_providers.${providerKey}_add_modal_url_label`, {
+          defaultValue: t('common.base_url'),
+        })}
+        placeholder={t(`ai_providers.${providerKey}_base_url_placeholder`, {
+          defaultValue: t('common.base_url'),
+        })}
         value={form.baseUrl}
         onChange={(event) => setForm((prev) => ({ ...prev, baseUrl: event.target.value }))}
         disabled={disabled || testing}
@@ -214,7 +220,9 @@ export function ProviderGroupEditForm({
         <div className={styles.keyEntriesHeader}>
           <label className={styles.keyEntriesTitle}>
             {t(`ai_providers.${providerKey}_add_modal_keys_label`, {
-              defaultValue: t(`ai_providers.${providerKey}_add_modal_key_label`, { defaultValue: '密钥' }),
+              defaultValue: t(`ai_providers.${providerKey}_add_modal_key_label`, {
+                defaultValue: '密钥',
+              }),
             })}
           </label>
           <span className={styles.keyEntriesHint}>

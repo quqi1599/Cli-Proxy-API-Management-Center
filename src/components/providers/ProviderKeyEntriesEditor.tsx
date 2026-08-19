@@ -94,16 +94,20 @@ export function ProviderKeyEntriesEditor({
 
   const updateEntry = (index: number, patch: Partial<ProviderKeyEntryDraft>) => {
     updateEntries(
-      list.map((entry, currentIndex) =>
-        currentIndex === index
-          ? {
-              ...entry,
-              ...patch,
-              testStatus: patch.testStatus ?? 'idle',
-              testMessage: patch.testMessage ?? '',
-            }
-          : entry
-      )
+      list.map((entry, currentIndex) => {
+        if (currentIndex !== index) return entry;
+        const connectivityChanged =
+          ('apiKey' in patch && patch.apiKey !== entry.apiKey) ||
+          ('proxyUrl' in patch && patch.proxyUrl !== entry.proxyUrl) ||
+          ('headers' in patch && patch.headers !== entry.headers);
+        return {
+          ...entry,
+          ...patch,
+          authIndex: connectivityChanged ? undefined : (patch.authIndex ?? entry.authIndex),
+          testStatus: patch.testStatus ?? 'idle',
+          testMessage: patch.testMessage ?? '',
+        };
+      })
     );
   };
 
@@ -343,7 +347,9 @@ export function ProviderKeyEntriesEditor({
                       {t('common.loading', { defaultValue: '测试中' })}
                     </span>
                   ) : (
-                    <span className={`${styles.keyInlineTestResult} ${styles.keyInlineTestResultIdle}`}>
+                    <span
+                      className={`${styles.keyInlineTestResult} ${styles.keyInlineTestResultIdle}`}
+                    >
                       {t('common.not_tested', { defaultValue: '未测试' })}
                     </span>
                   )}
@@ -371,7 +377,9 @@ export function ProviderKeyEntriesEditor({
           </div>
           <div className={styles.keyStatusModalRow}>
             <div className={styles.keyStatusModalLabel}>{t('common.status')}</div>
-            <span className="status-badge error">{t('common.failure', { defaultValue: '失败' })}</span>
+            <span className="status-badge error">
+              {t('common.failure', { defaultValue: '失败' })}
+            </span>
           </div>
           <div className={styles.keyStatusModalRow}>
             <div className={styles.keyStatusModalLabel}>

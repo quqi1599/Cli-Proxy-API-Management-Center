@@ -92,6 +92,7 @@ export const PROVIDER_VISUAL_ADAPTERS: Record<ProviderKind, ProviderVisualAdapte
 
 export interface ProviderKeyEntryDraft {
   apiKey: string;
+  authIndex?: string;
   proxyUrl: string;
   headers: HeaderEntry[];
   enabled?: boolean;

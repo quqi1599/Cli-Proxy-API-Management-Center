@@ -53,7 +53,9 @@ const normalizeGroupHeaders = (headers?: Record<string, string>) => {
   );
 };
 
-const normalizeGroupModels = (models?: Array<{ name: string; alias?: string; priority?: number }>) =>
+const normalizeGroupModels = (
+  models?: Array<{ name: string; alias?: string; priority?: number }>
+) =>
   (models ?? [])
     .map((model) => ({
       name: String(model?.name ?? '').trim(),
@@ -71,11 +73,7 @@ const normalizeGroupModels = (models?: Array<{ name: string; alias?: string; pri
 
 const normalizeGroupExcludedModels = (models?: string[]) =>
   Array.from(
-    new Set(
-      (models ?? [])
-        .map((model) => String(model ?? '').trim())
-        .filter(Boolean)
-    )
+    new Set((models ?? []).map((model) => String(model ?? '').trim()).filter(Boolean))
   ).sort((left, right) => left.toLowerCase().localeCompare(right.toLowerCase()));
 
 const normalizeGroupCloak = (cloak: CloakConfig | undefined) => {
@@ -84,11 +82,7 @@ const normalizeGroupCloak = (cloak: CloakConfig | undefined) => {
     mode: String(cloak.mode ?? '').trim(),
     strictMode: Boolean(cloak.strictMode),
     sensitiveWords: Array.from(
-      new Set(
-        (cloak.sensitiveWords ?? [])
-          .map((word) => String(word ?? '').trim())
-          .filter(Boolean)
-      )
+      new Set((cloak.sensitiveWords ?? []).map((word) => String(word ?? '').trim()).filter(Boolean))
     ).sort((left, right) => left.toLowerCase().localeCompare(right.toLowerCase())),
   };
 };
@@ -127,9 +121,11 @@ const toKeyEntryDraft = (
   proxyUrl: string | undefined,
   headers?: Record<string, string>,
   excludedModels?: string[],
-  disabled?: boolean
+  disabled?: boolean,
+  authIndex?: string
 ): ProviderKeyEntryDraft => ({
   apiKey: String(apiKey ?? ''),
+  authIndex: String(authIndex ?? '').trim() || undefined,
   proxyUrl: String(proxyUrl ?? ''),
   headers: headersToEntries(headers),
   enabled: disabled === undefined ? !hasDisableAllModelsRule(excludedModels) : !disabled,
@@ -168,7 +164,9 @@ const cloneCloak = (cloak: CloakConfig | undefined) =>
     : undefined;
 
 const countGroupEnabledStates = (configs: Array<ProviderKeyConfig | GeminiKeyConfig>) => {
-  const enabledCount = configs.filter((config) => !hasDisableAllModelsRule(config.excludedModels)).length;
+  const enabledCount = configs.filter(
+    (config) => !hasDisableAllModelsRule(config.excludedModels)
+  ).length;
   return {
     enabledCount,
     disabledCount: Math.max(configs.length - enabledCount, 0),
@@ -243,7 +241,14 @@ export const buildProviderGroupFormState = (
   excludedText: excludedModelsToText(stripDisableAllModelsRule(group.excludedModels)),
   testModel: group.models[0]?.name ?? '',
   keyEntries: group.configs.map((item) =>
-    toKeyEntryDraft(item.apiKey, item.proxyUrl, item.headers, item.excludedModels)
+    toKeyEntryDraft(
+      item.apiKey,
+      item.proxyUrl,
+      item.headers,
+      item.excludedModels,
+      undefined,
+      item.authIndex
+    )
   ),
   websockets: group.websockets,
   cloak: cloneCloak(group.cloak),
@@ -262,7 +267,14 @@ export const buildOpenAIGroupFormState = (
   testModel: config?.testModel ?? config?.models?.[0]?.name ?? '',
   keyEntries: config?.apiKeyEntries?.length
     ? config.apiKeyEntries.map((entry) =>
-        toKeyEntryDraft(entry.apiKey, entry.proxyUrl, entry.headers, undefined, entry.disabled)
+        toKeyEntryDraft(
+          entry.apiKey,
+          entry.proxyUrl,
+          entry.headers,
+          undefined,
+          entry.disabled,
+          entry.authIndex ?? config.authIndex
+        )
       )
     : [toKeyEntryDraft('', '', undefined)],
 });
@@ -512,16 +524,19 @@ export const buildProviderGroupCard = (
 ) => {
   const stats = group.configs.reduce(
     (acc, item) => {
-      const current = getStatsBySource(item.apiKey, keyStats, item.prefix);
+      const current = getStatsBySource(item.apiKey, keyStats, item.prefix, item.authIndex);
       acc.success += current.success;
       acc.failure += current.failure;
       return acc;
     },
     { success: 0, failure: 0 }
   );
-  const candidates = group.configs.flatMap((item) =>
-    buildCandidateUsageSourceIds({ apiKey: item.apiKey, prefix: item.prefix })
-  );
+  const candidates = group.configs.flatMap((item) => {
+    const authIndex = String(item.authIndex ?? '').trim();
+    return authIndex && statusBarBySource.has(authIndex)
+      ? [authIndex]
+      : buildCandidateUsageSourceIds({ apiKey: item.apiKey, prefix: item.prefix });
+  });
 
   return {
     primaryIndex: group.primaryIndex,
@@ -546,10 +561,22 @@ export const buildOpenAIProviderCard = (
   const enabledKeyCount = (config.apiKeyEntries ?? []).filter((entry) => !entry.disabled).length;
   const disabledKeyCount = (config.apiKeyEntries ?? []).filter((entry) => entry.disabled).length;
   const candidates = new Set<string>();
-  buildCandidateUsageSourceIds({ prefix: config.prefix }).forEach((id) => candidates.add(id));
   (config.apiKeyEntries || []).forEach((entry) => {
+    const authIndex = String(entry.authIndex ?? '').trim();
+    if (authIndex && statusBarBySource.has(authIndex)) {
+      candidates.add(authIndex);
+      return;
+    }
     buildCandidateUsageSourceIds({ apiKey: entry.apiKey }).forEach((id) => candidates.add(id));
   });
+  const providerAuthIndex = String(config.authIndex ?? '').trim();
+  if (!candidates.size && providerAuthIndex && statusBarBySource.has(providerAuthIndex)) {
+    candidates.add(providerAuthIndex);
+  }
+  if (!candidates.size) {
+    buildCandidateUsageSourceIds({ prefix: config.prefix }).forEach((id) => candidates.add(id));
+  }
+  const stats = getOpenAIProviderStats(config.apiKeyEntries, keyStats, config.prefix);
 
   return {
     primaryIndex: index,
@@ -564,8 +591,8 @@ export const buildOpenAIProviderCard = (
     disabledKeyCount,
     modelCount: config.models?.length ?? 0,
     statusData: lookupStatusBar(statusBarBySource, Array.from(candidates)),
-    success: getOpenAIProviderStats(config.apiKeyEntries, keyStats, config.prefix).success,
-    failure: getOpenAIProviderStats(config.apiKeyEntries, keyStats, config.prefix).failure,
+    success: stats.success,
+    failure: stats.failure,
     enabled: totalKeyCount === 0 || enabledKeyCount > 0,
   };
 };

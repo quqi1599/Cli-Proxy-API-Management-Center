@@ -25,7 +25,8 @@ function processKeyStatsResponse(response: MonitorKeyStatsResponse) {
       block_config.duration_ms
     );
     const normalizedKey = normalizeUsageSourceId(sourceKey);
-    const aliases = normalizedKey && normalizedKey !== sourceKey ? [sourceKey, normalizedKey] : [sourceKey];
+    const aliases =
+      normalizedKey && normalizedKey !== sourceKey ? [sourceKey, normalizedKey] : [sourceKey];
 
     aliases.forEach((alias) => {
       if (!alias) return;
@@ -43,6 +44,10 @@ function processKeyStatsResponse(response: MonitorKeyStatsResponse) {
   }
   for (const [key, entry] of Object.entries(by_auth_index)) {
     byAuthIndex[key] = { success: entry.success, failure: entry.failure };
+    statusBarBySource.set(
+      key,
+      blocksToStatusBarData(entry.blocks, block_config.window_start_ms, block_config.duration_ms)
+    );
   }
 
   return {

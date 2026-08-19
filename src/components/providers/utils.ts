@@ -101,8 +101,17 @@ export const buildClaudeMessagesEndpoint = (baseUrl: string): string => {
 export const getStatsBySource = (
   apiKey: string,
   keyStats: KeyStats,
-  prefix?: string
+  prefix?: string,
+  authIndex?: string
 ): KeyStatBucket => {
+  const normalizedAuthIndex = String(authIndex ?? '').trim();
+  const authIndexStats = normalizedAuthIndex
+    ? keyStats.byAuthIndex?.[normalizedAuthIndex]
+    : undefined;
+  if (authIndexStats) {
+    return authIndexStats;
+  }
+
   const bySource = keyStats.bySource ?? {};
   const candidates = buildCandidateUsageSourceIds({ apiKey, prefix });
   if (!candidates.length) {
@@ -127,6 +136,38 @@ export const getOpenAIProviderStats = (
   keyStats: KeyStats,
   providerPrefix?: string
 ): KeyStatBucket => {
+  const authIndexes = new Set<string>();
+  const sourceFallbackEntries: ApiKeyEntry[] = [];
+  (apiKeyEntries ?? []).forEach((entry) => {
+    const authIndex = String(entry?.authIndex ?? '').trim();
+    if (authIndex && keyStats.byAuthIndex?.[authIndex]) {
+      authIndexes.add(authIndex);
+      return;
+    }
+    sourceFallbackEntries.push(entry);
+  });
+  if (authIndexes.size) {
+    let success = 0;
+    let failure = 0;
+    authIndexes.forEach((authIndex) => {
+      const stats = keyStats.byAuthIndex[authIndex];
+      if (!stats) return;
+      success += stats.success;
+      failure += stats.failure;
+    });
+    const sourceIds = new Set<string>();
+    sourceFallbackEntries.forEach((entry) => {
+      buildCandidateUsageSourceIds({ apiKey: entry.apiKey }).forEach((id) => sourceIds.add(id));
+    });
+    sourceIds.forEach((sourceId) => {
+      const stats = keyStats.bySource?.[sourceId];
+      if (!stats) return;
+      success += stats.success;
+      failure += stats.failure;
+    });
+    return { success, failure };
+  }
+
   const bySource = keyStats.bySource ?? {};
 
   const sourceIds = new Set<string>();
