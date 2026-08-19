@@ -23,6 +23,7 @@ import {
 import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/download';
 import { formatFileSize, formatUnixTimestamp } from '@/utils/format';
+import { ContentAuditPolicyPanel } from './ContentAuditPolicyPanel';
 import styles from './ContentAuditPage.module.scss';
 
 const PAGE_SIZE = 50;
@@ -238,7 +239,9 @@ export function ContentAuditPage() {
                 ? status.ready
                   ? status.audit_only
                     ? t('content_audit.status_observe')
-                    : t('content_audit.status_active')
+                    : status.block_rule_count > 0 && status.observe_rule_count > 0
+                      ? t('content_audit.status_hybrid')
+                      : t('content_audit.status_active')
                   : t('content_audit.status_error')
                 : t('content_audit.status_disabled')}
             </strong>
@@ -247,7 +250,9 @@ export function ContentAuditPage() {
                 t(
                   status?.audit_only
                     ? 'content_audit.status_observe_scope'
-                    : 'content_audit.status_scope'
+                    : (status?.block_rule_count ?? 0) > 0 && (status?.observe_rule_count ?? 0) > 0
+                      ? 'content_audit.status_hybrid_scope'
+                      : 'content_audit.status_scope'
                 )}
             </span>
           </div>
@@ -273,6 +278,8 @@ export function ContentAuditPage() {
           <strong>{encryptedCount}</strong>
         </div>
       </section>
+
+      <ContentAuditPolicyPanel onPolicyChanged={() => void loadData()} />
 
       <section className={styles.filters} aria-label={t('content_audit.filters')}>
         <input

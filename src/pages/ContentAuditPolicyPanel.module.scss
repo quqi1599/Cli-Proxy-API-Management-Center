@@ -1,0 +1,348 @@
+.panel {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-primary);
+}
+
+.summary {
+  min-height: 62px;
+  padding: 11px 14px;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.titleGroup {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  > div {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  strong {
+    font-size: 13px;
+  }
+
+  span:not(.icon) {
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.icon {
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-secondary));
+  color: var(--primary-color);
+}
+
+.counts,
+.summaryActions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.counts span,
+.ruleRow em,
+.history em {
+  padding: 4px 7px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.counts .blockCount {
+  border-color: rgba(220, 38, 38, 0.24);
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  border-top: 1px solid var(--border-color);
+}
+
+.ruleList {
+  max-height: 720px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.ruleListHeader {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+
+  strong {
+    font-size: 11px;
+  }
+}
+
+.ruleRow {
+  width: 100%;
+  padding: 10px 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover,
+  &.selected {
+    background: color-mix(in srgb, var(--primary-color) 7%, var(--bg-primary));
+  }
+
+  &.selected {
+    box-shadow: inset 3px 0 0 var(--primary-color);
+  }
+
+  > span {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: 10px;
+  }
+
+  small {
+    color: var(--text-tertiary);
+    font-size: 9px;
+  }
+}
+
+.ruleRow .blockAction {
+  border-color: rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+}
+
+.ruleRow .observeAction {
+  border-color: rgba(217, 119, 6, 0.25);
+  background: rgba(217, 119, 6, 0.08);
+  color: #b45309;
+}
+
+.ruleRow .disabledAction {
+  color: var(--text-tertiary);
+}
+
+.editor {
+  min-width: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.editorGrid,
+.textareaGrid {
+  display: grid;
+  gap: 9px;
+}
+
+.editorGrid {
+  grid-template-columns: minmax(180px, 1.2fr) repeat(3, minmax(120px, 0.7fr)) auto;
+  align-items: end;
+}
+
+.textareaGrid {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+}
+
+.editor label,
+.globalAllowlist label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  > span {
+    color: var(--text-secondary);
+    font-size: 9px;
+    font-weight: 700;
+  }
+}
+
+.editor input,
+.editor select,
+.editor textarea,
+.globalAllowlist textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  outline: none;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 10px;
+
+  &:focus {
+    border-color: var(--primary-color);
+  }
+}
+
+.editor textarea,
+.globalAllowlist textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.5;
+}
+
+.checkboxLabel {
+  height: 34px;
+  flex-direction: row !important;
+  align-items: center;
+
+  input {
+    width: auto;
+  }
+}
+
+.saveBar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+
+  > strong {
+    font-size: 11px;
+  }
+
+  > div {
+    min-height: 42px;
+    padding: 7px 9px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--bg-secondary);
+  }
+
+  span {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  b,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  b {
+    font-size: 10px;
+  }
+
+  small {
+    color: var(--text-tertiary);
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .summary {
+    grid-template-columns: 1fr auto;
+  }
+
+  .counts {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .workspace {
+    grid-template-columns: 250px minmax(0, 1fr);
+  }
+
+  .editorGrid,
+  .textareaGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .summary {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryActions,
+  .counts {
+    grid-column: 1;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .ruleList {
+    max-height: 260px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .editorGrid,
+  .textareaGrid,
+  .saveBar {
+    grid-template-columns: 1fr;
+  }
+}

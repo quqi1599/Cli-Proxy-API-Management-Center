@@ -16,9 +16,47 @@ export interface ContentAuditStatus {
   keyword_count: number;
   database_available: boolean;
   require_signed_identity: boolean;
+  allow_unaudited_websocket: boolean;
+  block_rule_count: number;
+  observe_rule_count: number;
+  disabled_rule_count: number;
   max_body_bytes: number;
   raw_retention_days: number;
   metadata_retention_days: number;
+}
+
+export type ContentAuditRuleAction = 'block' | 'observe';
+
+export interface ContentAuditRule {
+  id: string;
+  category: string;
+  severity: string;
+  action: ContentAuditRuleAction;
+  keywords: string[];
+  require_any?: string[];
+  exclude_any?: string[];
+  allowlist: string[];
+  disabled?: boolean;
+}
+
+export interface ContentAuditPolicy {
+  version: string;
+  global_allowlist: string[];
+  rules: ContentAuditRule[];
+}
+
+export interface ContentAuditPolicyVersion {
+  id: number;
+  created_at: number;
+  version: string;
+  reason: string;
+  actor: string;
+  active: boolean;
+}
+
+export interface ContentAuditPolicyDocument {
+  policy: ContentAuditPolicy;
+  history: ContentAuditPolicyVersion[];
 }
 
 export interface ContentAuditEvent {
@@ -92,6 +130,13 @@ const toQueryString = (params: ContentAuditListParams): string => {
 
 export const contentAuditApi = {
   getStatus: () => apiClient.get<ContentAuditStatus>('/content-audit/status'),
+  getPolicy: () => apiClient.get<ContentAuditPolicyDocument>('/content-audit/policy'),
+  updatePolicy: (policy: ContentAuditPolicy, reason: string) =>
+    apiClient.put<ContentAuditPolicyDocument>('/content-audit/policy', { policy, reason }),
+  rollbackPolicy: (versionId: number, reason: string) =>
+    apiClient.post<ContentAuditPolicyDocument>(`/content-audit/policy/rollback/${versionId}`, {
+      reason,
+    }),
   listEvents: (params: ContentAuditListParams) =>
     apiClient.get<ContentAuditListResponse>(`/content-audit/events${toQueryString(params)}`),
   getEvent: (eventId: string) =>
