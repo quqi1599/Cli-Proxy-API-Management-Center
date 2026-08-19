@@ -36,6 +36,7 @@ export interface ContentAuditEvent {
   category: string;
   severity: string;
   rule_id: string;
+  matched_term?: string;
   policy_version: string;
   request_bytes: number;
   identity_verified: boolean;
@@ -95,11 +96,10 @@ export const contentAuditApi = {
     apiClient.get<ContentAuditListResponse>(`/content-audit/events${toQueryString(params)}`),
   getEvent: (eventId: string) =>
     apiClient.get<ContentAuditEventDetail>(`/content-audit/events/${encodeURIComponent(eventId)}`),
-  revealEvidence: (eventId: string, reason: string, evidenceKey: string) =>
+  revealEvidence: (eventId: string) =>
     apiClient.post<{ event_id: string; evidence: unknown }>(
       `/content-audit/events/${encodeURIComponent(eventId)}/reveal`,
-      { reason },
-      { headers: { 'X-CPA-Audit-Evidence-Key': evidenceKey } }
+      {}
     ),
   reviewEvent: (
     eventId: string,

@@ -65,8 +65,6 @@ export function ContentAuditPage() {
   const [selected, setSelected] = useState<ContentAuditEventDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [evidence, setEvidence] = useState<unknown>(null);
-  const [evidenceKey, setEvidenceKey] = useState('');
-  const [evidenceReason, setEvidenceReason] = useState('');
   const [revealLoading, setRevealLoading] = useState(false);
   const [reviewLabel, setReviewLabel] = useState<ContentAuditReviewLabel>('unreviewed');
   const [reviewNote, setReviewNote] = useState('');
@@ -125,9 +123,16 @@ export function ContentAuditPage() {
     setReviewNote(event.review_note || '');
     setReviewReason('');
     setEvidence(null);
-    setEvidenceKey('');
-    setEvidenceReason('');
     setDetailLoading(true);
+    setRevealLoading(true);
+    try {
+      const response = await contentAuditApi.revealEvidence(event.id);
+      setEvidence(response.evidence);
+    } catch (error) {
+      showNotification(getErrorMessage(error) || t('content_audit.reveal_error'), 'error');
+    } finally {
+      setRevealLoading(false);
+    }
     try {
       const detail = await contentAuditApi.getEvent(event.id);
       setSelected(detail);
@@ -143,31 +148,7 @@ export function ContentAuditPage() {
   const closeDetail = () => {
     setSelected(null);
     setEvidence(null);
-    setEvidenceKey('');
-    setEvidenceReason('');
     setReviewReason('');
-  };
-
-  const revealEvidence = async () => {
-    if (!selected || evidenceReason.trim().length < 4 || !evidenceKey.trim()) {
-      showNotification(t('content_audit.reveal_requirements'), 'warning');
-      return;
-    }
-    setRevealLoading(true);
-    try {
-      const response = await contentAuditApi.revealEvidence(
-        selected.id,
-        evidenceReason.trim(),
-        evidenceKey
-      );
-      setEvidence(response.evidence);
-      setEvidenceKey('');
-      setSelected(await contentAuditApi.getEvent(selected.id));
-    } catch (error) {
-      showNotification(getErrorMessage(error) || t('content_audit.reveal_error'), 'error');
-    } finally {
-      setRevealLoading(false);
-    }
   };
 
   const saveReview = async () => {
@@ -197,7 +178,7 @@ export function ContentAuditPage() {
   const copyEvidence = async () => {
     if (!selected || !evidenceText) return;
     try {
-      await contentAuditApi.recordAccess(selected.id, 'copy', evidenceReason.trim());
+      await contentAuditApi.recordAccess(selected.id, 'copy', 'management console evidence copy');
       const copied = await copyToClipboard(evidenceText);
       showNotification(
         copied ? t('content_audit.copy_success') : t('content_audit.copy_error'),
@@ -210,7 +191,11 @@ export function ContentAuditPage() {
   const downloadEvidence = async () => {
     if (!selected || !evidenceText) return;
     try {
-      await contentAuditApi.recordAccess(selected.id, 'download', evidenceReason.trim());
+      await contentAuditApi.recordAccess(
+        selected.id,
+        'download',
+        'management console evidence download'
+      );
       downloadBlob({
         filename: `${selected.id}-evidence.json`,
         blob: new Blob([evidenceText], { type: 'application/json' }),
@@ -422,7 +407,9 @@ export function ContentAuditPage() {
                         </span>
                         <span className={styles.categoryBadge}>{event.category}</span>
                       </div>
-                      <code>{event.rule_id}</code>
+                      <code>
+                        {event.matched_term || '-'} · {event.rule_id}
+                      </code>
                     </td>
                     <td>
                       <span className={`${styles.reviewBadge} ${reviewClass(event.review_label)}`}>
@@ -481,7 +468,7 @@ export function ContentAuditPage() {
         }
       >
         {selected && (
-          <div className={styles.detailLayout} aria-busy={detailLoading}>
+          <div className={styles.detailLayout} aria-busy={detailLoading || revealLoading}>
             <section className={styles.detailSection}>
               <div className={styles.sectionHeading}>
                 <div>
@@ -532,9 +519,14 @@ export function ContentAuditPage() {
                   </dd>
                 </div>
                 <div>
+                  <dt>{t('content_audit.matched_term')}</dt>
+                  <dd>{selected.matched_term || '-'}</dd>
+                </div>
+                <div>
                   <dt>{t('content_audit.upstream')}</dt>
-                  <dd className={styles.stopped}>
-                    <IconCheck size={14} /> {t('content_audit.not_sent')}
+                  <dd className={selected.upstream_sent ? styles.sent : styles.stopped}>
+                    <IconCheck size={14} />{' '}
+                    {t(selected.upstream_sent ? 'content_audit.sent' : 'content_audit.not_sent')}
                   </dd>
                 </div>
                 <div>
@@ -558,34 +550,11 @@ export function ContentAuditPage() {
                   <strong>{t('content_audit.evidence_title')}</strong>
                   <span>{t('content_audit.evidence_hint')}</span>
                 </div>
-                <span className={styles.lockBadge}>{t('content_audit.step_up_required')}</span>
+                <span className={styles.lockBadge}>{t('content_audit.view_logged')}</span>
               </div>
-              {evidence === null ? (
-                <div className={styles.revealForm}>
-                  <label>
-                    <span>{t('content_audit.reveal_reason')}</span>
-                    <input
-                      value={evidenceReason}
-                      onChange={(event) => setEvidenceReason(event.target.value)}
-                      placeholder={t('content_audit.reveal_reason_placeholder')}
-                    />
-                  </label>
-                  <label>
-                    <span>{t('content_audit.evidence_key')}</span>
-                    <input
-                      type="password"
-                      value={evidenceKey}
-                      onChange={(event) => setEvidenceKey(event.target.value)}
-                      autoComplete="off"
-                      placeholder={t('content_audit.evidence_key_placeholder')}
-                    />
-                  </label>
-                  <Button onClick={revealEvidence} loading={revealLoading}>
-                    <IconEye size={15} /> {t('content_audit.reveal')}
-                  </Button>
-                  <p>{t('content_audit.evidence_key_memory')}</p>
-                </div>
-              ) : (
+              {revealLoading ? (
+                <div className={styles.evidenceLoading}>{t('common.loading')}</div>
+              ) : evidence !== null ? (
                 <div className={styles.evidencePanel}>
                   <div className={styles.evidenceActions}>
                     <span>{t('content_audit.evidence_revealed')}</span>
@@ -600,6 +569,8 @@ export function ContentAuditPage() {
                   </div>
                   <pre>{evidenceText}</pre>
                 </div>
+              ) : (
+                <div className={styles.evidenceLoading}>{t('content_audit.reveal_error')}</div>
               )}
             </section>
 
