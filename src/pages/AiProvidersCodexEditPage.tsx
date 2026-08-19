@@ -205,7 +205,7 @@ export function AiProvidersCodexEditPage() {
     const nextForm = buildEmptyForm();
     setForm(nextForm);
     setBaselineSignature(buildProviderGroupEditSignature(nextForm));
-  }, [editIndex, groupedConfigs, initialGroup, loading, location.state]);
+  }, [editIndex, groupedConfigs, initialGroup, loading, location.state, requestedCopySignature]);
 
   const currentSignature = useMemo(() => buildProviderGroupEditSignature(form), [form]);
   const isDirty = baselineSignature !== currentSignature;
