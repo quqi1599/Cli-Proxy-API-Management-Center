@@ -18,6 +18,7 @@ import { QuotaPage } from '@/pages/QuotaPage';
 import { ConfigPage } from '@/pages/ConfigPage';
 import { LogsPage } from '@/pages/LogsPage';
 import { SystemPage } from '@/pages/SystemPage';
+import { ContentAuditPage } from '@/pages/ContentAuditPage';
 import { localRoutes } from './localRoutes';
 
 const mainRoutes = [
@@ -73,6 +74,7 @@ const mainRoutes = [
   { path: '/config', element: <ConfigPage /> },
   { path: '/logs', element: <LogsPage /> },
   { path: '/system', element: <SystemPage /> },
+  { path: '/content-audit', element: <ContentAuditPage /> },
   ...localRoutes,
   { path: '*', element: <Navigate to="/" replace /> },
 ];

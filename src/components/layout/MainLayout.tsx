@@ -22,6 +22,7 @@ import {
   IconSidebarQuota,
   IconSidebarSystem,
   IconActivity,
+  IconShield,
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import {
@@ -48,6 +49,7 @@ const sidebarIcons: Record<string, ReactNode> = {
   logs: <IconSidebarLogs size={18} />,
   system: <IconSidebarSystem size={18} />,
   monitor: <IconActivity size={18} />,
+  contentAudit: <IconShield size={18} />,
 };
 
 // Header action icons - smaller size for header buttons
@@ -435,6 +437,11 @@ export function MainLayout() {
       : []),
     { path: '/system', label: t('nav.system_info'), icon: sidebarIcons.system },
     { path: '/monitor', label: t('nav.monitor'), icon: sidebarIcons.monitor },
+    {
+      path: '/content-audit',
+      label: t('nav.content_audit', { defaultValue: '内容审计' }),
+      icon: sidebarIcons.contentAudit,
+    },
   ];
   const navOrder = navItems.map((item) => item.path);
   const getRouteOrder = (pathname: string) => {

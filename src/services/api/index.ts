@@ -13,3 +13,4 @@ export * from './models';
 export * from './transformers';
 export * from './vertex';
 export * from './local';
+export * from './contentAudit';
