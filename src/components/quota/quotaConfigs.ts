@@ -52,6 +52,7 @@ import {
   KIMI_USAGE_URL,
   KIMI_REQUEST_HEADERS,
   normalizeGeminiCliModelId,
+  normalizeCodexAdditionalLimit,
   normalizeNumberValue,
   normalizePlanType,
   normalizeQuotaFraction,
@@ -258,7 +259,8 @@ const buildCodexQuotaWindows = (payload: CodexUsagePayload, t: TFunction): Codex
     labelParams: Record<string, string | number> | undefined,
     window?: CodexUsageWindow | null,
     limitReached?: boolean,
-    allowed?: boolean
+    allowed?: boolean,
+    category: CodexQuotaWindow['category'] = 'general'
   ) => {
     if (!window) return;
     const resetLabel = formatCodexResetLabel(window);
@@ -270,6 +272,7 @@ const buildCodexQuotaWindows = (payload: CodexUsagePayload, t: TFunction): Codex
       label,
       labelKey,
       labelParams,
+      category,
       usedPercent,
       resetLabel,
     });
@@ -372,34 +375,49 @@ const buildCodexQuotaWindows = (payload: CodexUsagePayload, t: TFunction): Codex
       const rateInfo = limitItem?.rate_limit ?? limitItem?.rateLimit ?? null;
       if (!rateInfo) return;
 
-      const limitName =
-        normalizeStringValue(limitItem?.limit_name ?? limitItem?.limitName) ??
-        normalizeStringValue(limitItem?.metered_feature ?? limitItem?.meteredFeature) ??
-        `additional-${index + 1}`;
+      const rawLimitName = normalizeStringValue(limitItem?.limit_name ?? limitItem?.limitName);
+      const rawMeteredFeature = normalizeStringValue(
+        limitItem?.metered_feature ?? limitItem?.meteredFeature
+      );
+      const limitName = rawLimitName ?? rawMeteredFeature ?? `additional-${index + 1}`;
+      const normalizedLimit = normalizeCodexAdditionalLimit(
+        limitName,
+        [rawLimitName, rawMeteredFeature].filter(Boolean) as string[]
+      );
 
-      const idPrefix = normalizeWindowId(limitName) || `additional-${index + 1}`;
+      const idPrefix = normalizeWindowId(normalizedLimit.name) || `additional-${index + 1}`;
       const additionalPrimaryWindow = rateInfo.primary_window ?? rateInfo.primaryWindow ?? null;
       const additionalSecondaryWindow = rateInfo.secondary_window ?? rateInfo.secondaryWindow ?? null;
       const additionalLimitReached = rateInfo.limit_reached ?? rateInfo.limitReached;
       const additionalAllowed = rateInfo.allowed;
+      const primaryLabelKey =
+        normalizedLimit.category === 'image'
+          ? 'codex_quota.image_primary_window'
+          : 'codex_quota.additional_primary_window';
+      const secondaryLabelKey =
+        normalizedLimit.category === 'image'
+          ? 'codex_quota.image_secondary_window'
+          : 'codex_quota.additional_secondary_window';
 
       addWindow(
         `${idPrefix}-five-hour-${index}`,
-        t('codex_quota.additional_primary_window', { name: limitName }),
-        'codex_quota.additional_primary_window',
-        { name: limitName },
+        t(primaryLabelKey, { name: normalizedLimit.name }),
+        primaryLabelKey,
+        { name: normalizedLimit.name },
         additionalPrimaryWindow,
         additionalLimitReached,
-        additionalAllowed
+        additionalAllowed,
+        normalizedLimit.category
       );
       addWindow(
         `${idPrefix}-weekly-${index}`,
-        t('codex_quota.additional_secondary_window', { name: limitName }),
-        'codex_quota.additional_secondary_window',
-        { name: limitName },
+        t(secondaryLabelKey, { name: normalizedLimit.name }),
+        secondaryLabelKey,
+        { name: normalizedLimit.name },
         additionalSecondaryWindow,
         additionalLimitReached,
-        additionalAllowed
+        additionalAllowed,
+        normalizedLimit.category
       );
     });
   }
@@ -747,6 +765,8 @@ const renderCodexItems = (
   const { styles: styleMap, QuotaProgressBar } = helpers;
   const { createElement: h, Fragment } = React;
   const windows = quota.windows ?? [];
+  const generalWindows = windows.filter((window) => window.category !== 'image');
+  const imageWindows = windows.filter((window) => window.category === 'image');
   const planType = quota.planType ?? null;
 
   const getPlanLabel = (pt?: string | null): string | null => {
@@ -775,41 +795,63 @@ const renderCodexItems = (
     );
   }
 
+  const renderWindow = (window: CodexQuotaWindow) => {
+    const used = window.usedPercent;
+    const clampedUsed = used === null ? null : Math.max(0, Math.min(100, used));
+    const remaining = clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
+    const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
+    const windowLabel = window.labelKey
+      ? t(window.labelKey, window.labelParams as Record<string, string | number>)
+      : window.label;
+
+    return h(
+      'div',
+      { key: window.id, className: styleMap.quotaRow },
+      h(
+        'div',
+        { className: styleMap.quotaRowHeader },
+        h('span', { className: styleMap.quotaModel }, windowLabel),
+        h(
+          'div',
+          { className: styleMap.quotaMeta },
+          h('span', { className: styleMap.quotaPercent }, percentLabel),
+          h('span', { className: styleMap.quotaReset }, window.resetLabel)
+        )
+      ),
+      h(QuotaProgressBar, { percent: remaining, highThreshold: 80, mediumThreshold: 50 })
+    );
+  };
+
+  const renderImageUnavailable = () =>
+    h(
+      'div',
+      { key: 'image-quota-unavailable', className: styleMap.quotaRow },
+      h(
+        'div',
+        { className: styleMap.quotaRowHeader },
+        h('span', { className: styleMap.quotaModel }, t('codex_quota.image_quota_label')),
+        h(
+          'div',
+          { className: styleMap.quotaMeta },
+          h('span', { className: styleMap.quotaReset }, t('codex_quota.image_quota_unavailable'))
+        )
+      )
+    );
+
   if (windows.length === 0) {
     nodes.push(
-      h('div', { key: 'empty', className: styleMap.quotaMessage }, t('codex_quota.empty_windows'))
+      h('div', { key: 'empty', className: styleMap.quotaMessage }, t('codex_quota.empty_windows')),
+      renderImageUnavailable()
     );
     return h(Fragment, null, ...nodes);
   }
 
-  nodes.push(
-    ...windows.map((window) => {
-      const used = window.usedPercent;
-      const clampedUsed = used === null ? null : Math.max(0, Math.min(100, used));
-      const remaining = clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
-      const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
-      const windowLabel = window.labelKey
-        ? t(window.labelKey, window.labelParams as Record<string, string | number>)
-        : window.label;
-
-      return h(
-        'div',
-        { key: window.id, className: styleMap.quotaRow },
-        h(
-          'div',
-          { className: styleMap.quotaRowHeader },
-          h('span', { className: styleMap.quotaModel }, windowLabel),
-          h(
-            'div',
-            { className: styleMap.quotaMeta },
-            h('span', { className: styleMap.quotaPercent }, percentLabel),
-            h('span', { className: styleMap.quotaReset }, window.resetLabel)
-          )
-        ),
-        h(QuotaProgressBar, { percent: remaining, highThreshold: 80, mediumThreshold: 50 })
-      );
-    })
-  );
+  nodes.push(...generalWindows.map(renderWindow));
+  if (imageWindows.length > 0) {
+    nodes.push(...imageWindows.map(renderWindow));
+  } else {
+    nodes.push(renderImageUnavailable());
+  }
 
   return h(Fragment, null, ...nodes);
 };

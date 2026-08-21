@@ -19,6 +19,23 @@ export function normalizeStringValue(value: unknown): string | null {
   return null;
 }
 
+export function normalizeCodexAdditionalLimit(displayName: string, identifiers: string[]) {
+  const normalized = identifiers
+    .join(' ')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_');
+  if (
+    normalized.includes('gpt_image_2') ||
+    normalized.includes('image_generation') ||
+    normalized.includes('image_gen') ||
+    normalized.includes('media_generation')
+  ) {
+    return { name: 'GPT Image 2', category: 'image' as const };
+  }
+  return { name: displayName, category: 'general' as const };
+}
+
 export function normalizeGeminiCliModelId(value: unknown): string | null {
   const modelId = normalizeStringValue(value);
   if (!modelId) return null;
