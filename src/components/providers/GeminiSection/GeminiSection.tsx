@@ -167,7 +167,11 @@ export function GeminiSection({
                       {t('common.api_key')}: {card.keyCount}
                     </div>
                     <div className={styles.providerStatusMeta}>
-                      {item.enabledCount === 0 ? '禁用' : '启用'}
+                      {item.disabledCount > 0
+                        ? `启用 ${item.enabledCount} / 禁用 ${item.disabledCount}`
+                        : item.enabledCount === 0
+                          ? '禁用'
+                          : '启用'}
                     </div>
                   </div>
                 </div>
