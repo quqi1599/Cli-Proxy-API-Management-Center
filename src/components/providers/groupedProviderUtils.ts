@@ -102,7 +102,7 @@ export const buildProviderGroupSignature = (
     priority: config.priority ?? null,
     headers: normalizeGroupHeaders(config.headers),
     models: normalizeGroupModels(config.models),
-    excludedModels: normalizeGroupExcludedModels(config.excludedModels),
+    excludedModels: normalizeGroupExcludedModels(stripDisableAllModelsRule(config.excludedModels)),
     websockets: provider === 'codex' ? Boolean(config.websockets) : null,
     cloak: provider === 'claude' ? normalizeGroupCloak(config.cloak) : null,
   });
@@ -214,7 +214,7 @@ export const groupProviderConfigs = (
       priority: item.priority,
       headers: item.headers ?? {},
       models: item.models ?? [],
-      excludedModels: item.excludedModels ?? [],
+      excludedModels: stripDisableAllModelsRule(item.excludedModels),
       configs: [item],
       indexes: [index],
       primaryIndex: index,

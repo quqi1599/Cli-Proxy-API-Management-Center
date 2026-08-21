@@ -92,6 +92,62 @@ test('groupProviderConfigs keeps equivalent headers in one gemini group', () => 
   assert.equal(groups[0]?.configs.length, 2);
 });
 
+test('groupProviderConfigs keeps enabled and disabled keys in one provider group', () => {
+  const groups = groupProviderConfigs('claude', [
+    {
+      apiKey: 'disabled-key',
+      baseUrl: 'https://api.anthropic.com',
+      prefix: 'team',
+      priority: 5,
+      models: [{ name: 'claude-sonnet', alias: 'claude-sonnet' }],
+      excludedModels: ['legacy-model', '*'],
+    },
+    {
+      apiKey: 'enabled-key',
+      baseUrl: 'https://api.anthropic.com',
+      prefix: 'team',
+      priority: 5,
+      models: [{ name: 'claude-sonnet', alias: 'claude-sonnet' }],
+      excludedModels: ['legacy-model'],
+    },
+  ] satisfies ProviderKeyConfig[]);
+
+  assert.equal(groups.length, 1);
+  const group = groups[0]!;
+  assert.equal(group.configs.length, 2);
+  assert.equal(group.enabledCount, 1);
+  assert.equal(group.disabledCount, 1);
+  assert.equal(group.enabled, true);
+  assert.deepEqual(group.excludedModels, ['legacy-model']);
+
+  const form = buildProviderGroupFormState(group);
+  assert.deepEqual(
+    form.keyEntries.map((entry) => entry.enabled),
+    [false, true]
+  );
+
+  const rebuilt = buildProviderConfigsFromGroupForm(form);
+  assert.equal(rebuilt[0]?.excludedModels?.includes('*'), true);
+  assert.equal(rebuilt[1]?.excludedModels?.includes('*'), false);
+});
+
+test('groupProviderConfigs still splits groups with different model exclusions', () => {
+  const groups = groupProviderConfigs('claude', [
+    {
+      apiKey: 'disabled-key',
+      baseUrl: 'https://api.anthropic.com',
+      excludedModels: ['model-a', '*'],
+    },
+    {
+      apiKey: 'enabled-key',
+      baseUrl: 'https://api.anthropic.com',
+      excludedModels: ['model-b'],
+    },
+  ] satisfies ProviderKeyConfig[]);
+
+  assert.equal(groups.length, 2);
+});
+
 test('groupProviderConfigs splits claude groups when cloak differs', () => {
   const groups = groupProviderConfigs('claude', [
     {
