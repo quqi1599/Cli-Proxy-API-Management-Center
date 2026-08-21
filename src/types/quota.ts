@@ -234,6 +234,7 @@ export interface CodexQuotaWindow {
   label: string;
   labelKey?: string;
   labelParams?: Record<string, string | number>;
+  category?: 'general' | 'image';
   usedPercent: number | null;
   resetLabel: string;
 }
