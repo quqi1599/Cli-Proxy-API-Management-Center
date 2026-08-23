@@ -262,6 +262,14 @@ export function ContentAuditPage() {
           <strong>{status?.policy_version || '-'}</strong>
         </div>
         <div className={styles.statusMetric}>
+          <span>{t('content_audit.model_review')}</span>
+          <strong>
+            {status
+              ? t(`content_audit.model_review_mode_${status.model_review_mode || 'off'}`)
+              : '-'}
+          </strong>
+        </div>
+        <div className={styles.statusMetric}>
           <span>{t('content_audit.keywords')}</span>
           <strong>{status?.keyword_count?.toLocaleString() || '0'}</strong>
         </div>
@@ -413,6 +421,17 @@ export function ContentAuditPage() {
                           {event.severity}
                         </span>
                         <span className={styles.categoryBadge}>{event.category}</span>
+                        {event.final_action && (
+                          <span
+                            className={
+                              event.final_action === 'block'
+                                ? styles.finalBlockBadge
+                                : styles.finalAllowBadge
+                            }
+                          >
+                            {t(`content_audit.final_action_${event.final_action}`)}
+                          </span>
+                        )}
                       </div>
                       <code>
                         {event.matched_term || '-'} · {event.rule_id}
@@ -526,8 +545,28 @@ export function ContentAuditPage() {
                   </dd>
                 </div>
                 <div>
+                  <dt>{t('content_audit.keyword_action')}</dt>
+                  <dd>
+                    {selected.action ? t(`content_audit.policy_action_${selected.action}`) : '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('content_audit.final_action')}</dt>
+                  <dd>
+                    {selected.final_action
+                      ? t(`content_audit.final_action_${selected.final_action}`)
+                      : selected.upstream_sent
+                        ? t('content_audit.final_action_allow')
+                        : t('content_audit.final_action_block')}
+                  </dd>
+                </div>
+                <div>
                   <dt>{t('content_audit.matched_term')}</dt>
                   <dd>{selected.matched_term || '-'}</dd>
+                </div>
+                <div>
+                  <dt>{t('content_audit.matched_roles')}</dt>
+                  <dd>{selected.matched_roles?.join(', ') || '-'}</dd>
                 </div>
                 <div>
                   <dt>{t('content_audit.upstream')}</dt>
@@ -547,6 +586,50 @@ export function ContentAuditPage() {
                       ? t('content_audit.verified')
                       : t('content_audit.unverified')}
                   </dd>
+                </div>
+                <div>
+                  <dt>{t('content_audit.duplicate_count')}</dt>
+                  <dd>{selected.duplicate_count || 1}</dd>
+                </div>
+                <div>
+                  <dt>{t('content_audit.model_review_mode')}</dt>
+                  <dd>
+                    {selected.model_review_mode
+                      ? t(`content_audit.model_review_mode_${selected.model_review_mode}`)
+                      : '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('content_audit.model_review_decision')}</dt>
+                  <dd>
+                    {selected.model_review_decision
+                      ? t(`content_audit.model_review_decision_${selected.model_review_decision}`)
+                      : '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('content_audit.model_review_model')}</dt>
+                  <dd>{selected.model_review_model || '-'}</dd>
+                </div>
+                <div>
+                  <dt>{t('content_audit.model_review_confidence')}</dt>
+                  <dd>
+                    {typeof selected.model_review_confidence === 'number'
+                      ? `${(selected.model_review_confidence * 100).toFixed(1)}%`
+                      : '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('content_audit.model_review_latency')}</dt>
+                  <dd>
+                    {typeof selected.model_review_latency_ms === 'number'
+                      ? `${selected.model_review_latency_ms} ms`
+                      : '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('content_audit.model_review_fallback')}</dt>
+                  <dd>{selected.model_review_fallback || '-'}</dd>
                 </div>
               </dl>
             </section>

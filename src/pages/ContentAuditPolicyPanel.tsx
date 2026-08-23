@@ -24,6 +24,20 @@ const lines = (value: string): string[] =>
 
 const joined = (value?: string[]): string => (value || []).join('\n');
 
+const grouped = (value?: string[][]): string =>
+  (value || []).map((group) => group.join(' | ')).join('\n');
+
+const groups = (value: string): string[][] =>
+  value
+    .split('\n')
+    .map((line) =>
+      line
+        .split('|')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+    .filter((group) => group.length > 0);
+
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : typeof error === 'string' ? error : '';
 
@@ -94,7 +108,10 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
       keywords: [],
       require_any: [],
       exclude_any: [],
+      exclude_all: [],
+      override_exclude_any: [],
       allowlist: [],
+      model_review: false,
     });
     setDraft(next);
     setSelectedIndex(next.rules.length - 1);
@@ -197,6 +214,7 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
                   <strong>{rule.id || t('content_audit.policy_unnamed_rule')}</strong>
                   <small>
                     {rule.category} · {rule.keywords.length} {t('content_audit.policy_terms')}
+                    {rule.model_review ? ` · ${t('content_audit.policy_model_review_short')}` : ''}
                   </small>
                 </span>
                 <em
@@ -273,6 +291,16 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
                   />
                   <span>{t('content_audit.policy_disable_rule')}</span>
                 </label>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(selectedRule.model_review)}
+                    onChange={(event) =>
+                      updateRule(selectedIndex, { model_review: event.target.checked })
+                    }
+                  />
+                  <span>{t('content_audit.policy_model_review')}</span>
+                </label>
               </div>
 
               <div className={styles.textareaGrid}>
@@ -313,6 +341,29 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
                     value={joined(selectedRule.allowlist)}
                     onChange={(event) =>
                       updateRule(selectedIndex, { allowlist: lines(event.target.value) })
+                    }
+                  />
+                </label>
+                <label>
+                  <span>{t('content_audit.policy_exclude_all')}</span>
+                  <textarea
+                    rows={10}
+                    value={grouped(selectedRule.exclude_all)}
+                    placeholder={t('content_audit.policy_exclude_all_placeholder')}
+                    onChange={(event) =>
+                      updateRule(selectedIndex, { exclude_all: groups(event.target.value) })
+                    }
+                  />
+                </label>
+                <label>
+                  <span>{t('content_audit.policy_override_exclude_any')}</span>
+                  <textarea
+                    rows={10}
+                    value={joined(selectedRule.override_exclude_any)}
+                    onChange={(event) =>
+                      updateRule(selectedIndex, {
+                        override_exclude_any: lines(event.target.value),
+                      })
                     }
                   />
                 </label>

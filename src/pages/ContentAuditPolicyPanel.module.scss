@@ -185,12 +185,12 @@
 }
 
 .editorGrid {
-  grid-template-columns: minmax(180px, 1.2fr) repeat(3, minmax(120px, 0.7fr)) auto;
+  grid-template-columns: minmax(180px, 1.2fr) repeat(3, minmax(120px, 0.7fr)) auto auto;
   align-items: end;
 }
 
 .textareaGrid {
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: repeat(3, minmax(170px, 1fr));
 }
 
 .editor label,

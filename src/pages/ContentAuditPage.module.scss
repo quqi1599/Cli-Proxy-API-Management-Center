@@ -44,7 +44,7 @@
 
 .statusStrip {
   display: grid;
-  grid-template-columns: minmax(250px, 1.8fr) repeat(5, minmax(92px, 0.7fr));
+  grid-template-columns: minmax(250px, 1.8fr) repeat(6, minmax(92px, 0.7fr));
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-left: 3px solid var(--primary-color);
@@ -291,7 +291,9 @@
 .badge,
 .categoryBadge,
 .reviewBadge,
-.lockBadge {
+.lockBadge,
+.finalBlockBadge,
+.finalAllowBadge {
   display: inline-flex !important;
   align-items: center;
   width: max-content;
@@ -337,6 +339,18 @@
   border: 1px solid var(--border-color);
   background: var(--bg-secondary);
   color: var(--text-secondary);
+}
+
+.finalBlockBadge {
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+}
+
+.finalAllowBadge {
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  background: rgba(22, 163, 74, 0.08);
+  color: #15803d;
 }
 
 .reviewBadge {

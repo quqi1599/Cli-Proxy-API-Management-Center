@@ -21,8 +21,13 @@ export interface ContentAuditStatus {
   observe_rule_count: number;
   disabled_rule_count: number;
   max_body_bytes: number;
+  evidence_dedupe_seconds: number;
   raw_retention_days: number;
   metadata_retention_days: number;
+  model_review_mode: 'off' | 'shadow' | 'enforce';
+  model_review_model?: string;
+  model_review_ready: boolean;
+  model_review_timeout_ms: number;
 }
 
 export type ContentAuditRuleAction = 'block' | 'observe';
@@ -35,7 +40,10 @@ export interface ContentAuditRule {
   keywords: string[];
   require_any?: string[];
   exclude_any?: string[];
+  exclude_all?: string[][];
+  override_exclude_any?: string[];
   allowlist: string[];
+  model_review?: boolean;
   disabled?: boolean;
 }
 
@@ -74,13 +82,27 @@ export interface ContentAuditEvent {
   category: string;
   severity: string;
   rule_id: string;
+  action?: ContentAuditRuleAction;
+  final_action?: 'allow' | 'block';
   matched_term?: string;
+  matched_roles?: string[];
+  content_fingerprint?: string;
   policy_version: string;
   request_bytes: number;
   identity_verified: boolean;
   upstream_sent: boolean;
   evidence_status: string;
   evidence_key_id: string;
+  evidence_ref_id?: string;
+  duplicate_count?: number;
+  model_review_mode?: 'off' | 'shadow' | 'enforce';
+  model_review_model?: string;
+  model_review_decision?: 'allow' | 'block' | 'uncertain';
+  model_review_category?: string;
+  model_review_confidence?: number;
+  model_review_latency_ms?: number;
+  model_review_cache_hit?: boolean;
+  model_review_fallback?: string;
   review_label: ContentAuditReviewLabel;
   review_note?: string;
   reviewed_at?: number;
