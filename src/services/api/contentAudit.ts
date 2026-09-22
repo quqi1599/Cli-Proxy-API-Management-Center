@@ -7,8 +7,11 @@ export type ContentAuditReviewLabel =
   | 'needs_policy_change'
   | 'out_of_scope';
 
+export type ContentAuditMode = 'strict' | 'simple' | 'off';
+
 export interface ContentAuditStatus {
   enabled: boolean;
+  mode?: ContentAuditMode;
   audit_only: boolean;
   ready: boolean;
   error?: string;
@@ -152,6 +155,8 @@ const toQueryString = (params: ContentAuditListParams): string => {
 
 export const contentAuditApi = {
   getStatus: () => apiClient.get<ContentAuditStatus>('/content-audit/status'),
+  setMode: (mode: ContentAuditMode) =>
+    apiClient.patch<{ status: string }>('/content-audit/mode', { value: mode }),
   getPolicy: () => apiClient.get<ContentAuditPolicyDocument>('/content-audit/policy'),
   updatePolicy: (policy: ContentAuditPolicy, reason: string) =>
     apiClient.put<ContentAuditPolicyDocument>('/content-audit/policy', { policy, reason }),

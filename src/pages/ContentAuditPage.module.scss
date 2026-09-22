@@ -42,6 +42,87 @@
   text-transform: uppercase;
 }
 
+.modePanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-primary);
+}
+
+.modeIntro {
+  display: flex;
+  min-width: 180px;
+  flex-direction: column;
+  gap: 3px;
+
+  strong {
+    font-size: 13px;
+  }
+
+  span {
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+}
+
+.modeOptions {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.modeButton {
+  display: flex;
+  min-height: 48px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary-color);
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+
+  span {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  small {
+    color: var(--text-tertiary);
+    font-size: 10px;
+  }
+}
+
+.modeButtonActive {
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-primary));
+  color: var(--primary-color);
+
+  small {
+    color: var(--text-secondary);
+  }
+}
+
 .statusStrip {
   display: grid;
   grid-template-columns: minmax(250px, 1.8fr) repeat(6, minmax(92px, 0.7fr));
@@ -689,6 +770,16 @@
     h1 {
       font-size: 22px;
     }
+  }
+
+  .modePanel {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .modeOptions {
+    grid-template-columns: 1fr;
   }
 
   .statusStrip {

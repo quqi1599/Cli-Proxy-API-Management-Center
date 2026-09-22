@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -17,6 +17,7 @@ import {
   type ContentAuditEvent,
   type ContentAuditEventDetail,
   type ContentAuditListParams,
+  type ContentAuditMode,
   type ContentAuditReviewLabel,
   type ContentAuditStatus,
 } from '@/services/api/contentAudit';
@@ -24,6 +25,7 @@ import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/download';
 import { formatFileSize, formatUnixTimestamp } from '@/utils/format';
 import { ContentAuditPolicyPanel } from './ContentAuditPolicyPanel';
+import { activeAuditMode, confirmAuditMode, supportsAuditModes } from './contentAuditMode';
 import styles from './ContentAuditPage.module.scss';
 
 const PAGE_SIZE = 50;
@@ -71,6 +73,16 @@ export function ContentAuditPage() {
   const [reviewNote, setReviewNote] = useState('');
   const [reviewReason, setReviewReason] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [modeLoading, setModeLoading] = useState(false);
+  const modeBusy = useRef(false);
+  const loadGeneration = useRef(0);
+  const latestLoad = useRef<() => Promise<void>>(async () => {});
+  const invalidateLoads = useCallback(() => {
+    loadGeneration.current++;
+  }, []);
+
+  const effectiveMode = activeAuditMode(status);
+  const modeAvailable = connectionStatus === 'connected' && supportsAuditModes(status);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const falsePositiveCount = useMemo(
@@ -83,29 +95,61 @@ export function ContentAuditPage() {
   );
 
   const loadData = useCallback(async () => {
-    if (connectionStatus !== 'connected') return;
+    if (modeBusy.current) return;
+    const generation = ++loadGeneration.current;
+    if (connectionStatus !== 'connected') {
+      setStatus(null);
+      setEvents([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setLoadError('');
     const params: ContentAuditListParams = { ...filters, page, page_size: PAGE_SIZE };
     try {
-      const [nextStatus, list] = await Promise.all([
+      const [statusResult, listResult] = await Promise.allSettled([
         contentAuditApi.getStatus(),
         contentAuditApi.listEvents(params),
       ]);
-      setStatus(nextStatus);
-      setEvents(Array.isArray(list.items) ? list.items : []);
-      setTotal(Number(list.total) || 0);
+      if (generation !== loadGeneration.current) return;
+      setStatus(statusResult.status === 'fulfilled' ? statusResult.value : null);
+      if (listResult.status === 'fulfilled') {
+        const list = listResult.value;
+        setEvents(Array.isArray(list.items) ? list.items : []);
+        setTotal(Number(list.total) || 0);
+      } else {
+        setEvents([]);
+        setTotal(0);
+      }
+      if (statusResult.status === 'rejected' || listResult.status === 'rejected') {
+        const error =
+          statusResult.status === 'rejected'
+            ? statusResult.reason
+            : listResult.status === 'rejected'
+              ? listResult.reason
+              : null;
+        setLoadError(getErrorMessage(error) || t('content_audit.load_error'));
+      }
     } catch (error) {
+      if (generation !== loadGeneration.current) return;
       setLoadError(getErrorMessage(error) || t('content_audit.load_error'));
+      setStatus(null);
       setEvents([]);
+      setTotal(0);
     } finally {
-      setLoading(false);
+      if (generation === loadGeneration.current) setLoading(false);
     }
   }, [connectionStatus, filters, page, t]);
 
   useEffect(() => {
+    latestLoad.current = loadData;
     void loadData();
-  }, [loadData]);
+    return () => {
+      invalidateLoads();
+      latestLoad.current = async () => {};
+    };
+  }, [loadData, invalidateLoads]);
   useHeaderRefresh(loadData);
 
   const applyFilters = () => {
@@ -116,6 +160,36 @@ export function ContentAuditPage() {
     setDraftFilters(emptyFilters);
     setFilters(emptyFilters);
     setPage(1);
+  };
+
+  const switchMode = async (mode: ContentAuditMode) => {
+    if (!modeAvailable || mode === effectiveMode || modeBusy.current) return;
+    modeBusy.current = true;
+    const generation = ++loadGeneration.current;
+    setLoading(false);
+    setModeLoading(true);
+    try {
+      await contentAuditApi.setMode(mode);
+      const applied = await confirmAuditMode(mode, contentAuditApi.getStatus, (nextStatus) => {
+        if (generation === loadGeneration.current) setStatus(nextStatus);
+      });
+      if (generation === loadGeneration.current) {
+        showNotification(
+          applied
+            ? t('content_audit.mode_saved', { mode: t(`content_audit.mode_${mode}`) })
+            : t('content_audit.mode_pending'),
+          applied ? 'success' : 'warning'
+        );
+      }
+    } catch (error) {
+      if (generation === loadGeneration.current) {
+        showNotification(getErrorMessage(error) || t('content_audit.mode_error'), 'error');
+      }
+    } finally {
+      modeBusy.current = false;
+      setModeLoading(false);
+      await latestLoad.current();
+    }
   };
 
   const openDetail = async (event: ContentAuditEvent) => {
@@ -217,10 +291,50 @@ export function ContentAuditPage() {
           <h1>{t('content_audit.title')}</h1>
           <p>{t('content_audit.subtitle')}</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={loadData} loading={loading}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={loadData}
+          loading={loading}
+          disabled={modeLoading}
+        >
           <IconRefreshCw size={15} /> {t('common.refresh')}
         </Button>
       </header>
+
+      <section className={styles.modePanel} aria-label={t('content_audit.mode_title')}>
+        <div className={styles.modeIntro}>
+          <strong>{t('content_audit.mode_title')}</strong>
+          <span role="status">
+            {t(
+              !status
+                ? 'content_audit.mode_unknown'
+                : !modeAvailable
+                  ? 'content_audit.mode_unavailable'
+                  : modeLoading
+                    ? 'content_audit.mode_saving'
+                    : status.enabled && status.audit_only
+                      ? 'content_audit.mode_observation'
+                      : 'content_audit.mode_hint'
+            )}
+          </span>
+        </div>
+        <div className={styles.modeOptions} role="group" aria-label={t('content_audit.mode_title')}>
+          {(['strict', 'simple', 'off'] as ContentAuditMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`${styles.modeButton} ${effectiveMode === mode ? styles.modeButtonActive : ''}`}
+              aria-pressed={effectiveMode === mode}
+              disabled={modeLoading || loading || !modeAvailable}
+              onClick={() => void switchMode(mode)}
+            >
+              <span>{t(`content_audit.mode_${mode}`)}</span>
+              <small>{t(`content_audit.mode_${mode}_hint`)}</small>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className={styles.statusStrip} aria-label={t('content_audit.status_title')}>
         <div className={styles.statusPrimary}>
@@ -235,25 +349,32 @@ export function ContentAuditPage() {
           />
           <div>
             <strong>
-              {status?.enabled
-                ? status.ready
-                  ? status.audit_only
-                    ? t('content_audit.status_observe')
-                    : status.block_rule_count > 0 && status.observe_rule_count > 0
-                      ? t('content_audit.status_hybrid')
-                      : t('content_audit.status_active')
-                  : t('content_audit.status_error')
-                : t('content_audit.status_disabled')}
+              {!status
+                ? t('content_audit.mode_unknown')
+                : status.enabled
+                  ? status.ready
+                    ? status.audit_only
+                      ? t('content_audit.status_observe')
+                      : status.block_rule_count > 0 && status.observe_rule_count > 0
+                        ? t('content_audit.status_hybrid')
+                        : t('content_audit.status_active')
+                    : t('content_audit.status_error')
+                  : t('content_audit.status_disabled')}
             </strong>
             <span>
               {status?.error ||
-                t(
-                  status?.audit_only
-                    ? 'content_audit.status_observe_scope'
-                    : (status?.block_rule_count ?? 0) > 0 && (status?.observe_rule_count ?? 0) > 0
-                      ? 'content_audit.status_hybrid_scope'
-                      : 'content_audit.status_scope'
-                )}
+                (!status
+                  ? t('content_audit.mode_unknown')
+                  : !status.enabled
+                    ? t('content_audit.mode_off_hint')
+                    : t(
+                        status?.audit_only
+                          ? 'content_audit.status_observe_scope'
+                          : (status?.block_rule_count ?? 0) > 0 &&
+                              (status?.observe_rule_count ?? 0) > 0
+                            ? 'content_audit.status_hybrid_scope'
+                            : 'content_audit.status_scope'
+                      ))}
             </span>
           </div>
         </div>
