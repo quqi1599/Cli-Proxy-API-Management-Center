@@ -58,7 +58,86 @@
   gap: 7px;
 }
 
-.counts span,
+.counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(100%, 410px);
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  background: var(--bg-secondary);
+}
+
+.countButton {
+  min-width: 0;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  strong {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.countButton_block strong {
+  color: #c92735;
+}
+
+.countButton_observe strong {
+  color: #aa6819;
+}
+
+.countButton_disabled strong {
+  color: var(--text-tertiary);
+}
+
+.countButtonActive {
+  border-color: var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+
+  &.countButton_block {
+    border-color: rgba(201, 39, 53, 0.25);
+    background: color-mix(in srgb, #c92735 7%, var(--bg-primary));
+  }
+
+  &.countButton_observe {
+    border-color: rgba(170, 104, 25, 0.25);
+    background: color-mix(in srgb, #aa6819 8%, var(--bg-primary));
+  }
+}
+
 .ruleRow em,
 .history em {
   padding: 4px 7px;
@@ -71,16 +150,14 @@
   font-weight: 700;
 }
 
-.counts .blockCount {
-  border-color: rgba(220, 38, 38, 0.24);
-  background: rgba(220, 38, 38, 0.08);
-  color: #dc2626;
-}
-
 .workspace {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   border-top: 1px solid var(--border-color);
+
+  &:has(.emptyFilter) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .ruleList {
@@ -104,6 +181,34 @@
 
   strong {
     font-size: 11px;
+  }
+}
+
+.emptyFilter {
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+
+  button {
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--primary-color);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 650;
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
   }
 }
 
@@ -330,6 +435,10 @@
     grid-column: 1;
   }
 
+  .counts {
+    width: 100%;
+  }
+
   .workspace {
     grid-template-columns: 1fr;
   }
@@ -344,5 +453,13 @@
   .textareaGrid,
   .saveBar {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .countButton {
+    gap: 4px;
+    padding-inline: 4px;
+    font-size: 10px;
   }
 }

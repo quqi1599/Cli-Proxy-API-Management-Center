@@ -41,6 +41,14 @@ const groups = (value: string): string[][] =>
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : typeof error === 'string' ? error : '';
 
+type RuleFilter = 'all' | 'block' | 'observe' | 'disabled';
+
+const matchesRuleFilter = (rule: ContentAuditRule, filter: RuleFilter): boolean => {
+  if (filter === 'all') return true;
+  if (filter === 'disabled') return Boolean(rule.disabled);
+  return !rule.disabled && rule.action === filter;
+};
+
 interface ContentAuditPolicyPanelProps {
   onPolicyChanged: () => void;
 }
@@ -52,6 +60,7 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
   const [document, setDocument] = useState<ContentAuditPolicyDocument | null>(null);
   const [draft, setDraft] = useState<ContentAuditPolicy | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [ruleFilter, setRuleFilter] = useState<RuleFilter>('all');
   const [reason, setReason] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -64,7 +73,12 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
       const next = await contentAuditApi.getPolicy();
       setDocument(next);
       setDraft(clonePolicy(next.policy));
-      setSelectedIndex((current) => Math.min(current, Math.max(0, next.policy.rules.length - 1)));
+      setSelectedIndex((current) => {
+        if (next.policy.rules[current] && matchesRuleFilter(next.policy.rules[current], ruleFilter)) {
+          return current;
+        }
+        return Math.max(0, next.policy.rules.findIndex((rule) => matchesRuleFilter(rule, ruleFilter)));
+      });
     } catch (error) {
       showNotification(errorMessage(error) || t('content_audit.policy_load_error'), 'error');
     } finally {
@@ -87,8 +101,24 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
       disabled: rules.filter((rule) => rule.disabled).length,
     };
   }, [draft]);
+  const filteredRules = useMemo(
+    () =>
+      (draft?.rules || [])
+        .map((rule, index) => ({ rule, index }))
+        .filter(({ rule }) => matchesRuleFilter(rule, ruleFilter)),
+    [draft, ruleFilter]
+  );
+
+  const selectRuleFilter = (filter: RuleFilter) => {
+    const nextFilter = ruleFilter === filter ? 'all' : filter;
+    const firstIndex = draft?.rules.findIndex((rule) => matchesRuleFilter(rule, nextFilter)) ?? -1;
+    setRuleFilter(nextFilter);
+    if (firstIndex >= 0) setSelectedIndex(firstIndex);
+    setExpanded(true);
+  };
 
   const updateRule = (index: number, patch: Partial<ContentAuditRule>) => {
+    if ('action' in patch || 'disabled' in patch) setRuleFilter('all');
     setDraft((current) => {
       if (!current) return current;
       const next = clonePolicy(current);
@@ -114,6 +144,7 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
       model_review: false,
     });
     setDraft(next);
+    setRuleFilter('all');
     setSelectedIndex(next.rules.length - 1);
   };
 
@@ -122,6 +153,7 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
     const next = clonePolicy(draft);
     next.rules.splice(selectedIndex, 1);
     setDraft(next);
+    setRuleFilter('all');
     setSelectedIndex(Math.max(0, selectedIndex - 1));
   };
 
@@ -177,12 +209,26 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
             <span>{t('content_audit.policy_control_hint')}</span>
           </div>
         </div>
-        <div className={styles.counts}>
-          <span className={styles.blockCount}>
-            {t('content_audit.policy_block_count', { count: actionCounts.block })}
-          </span>
-          <span>{t('content_audit.policy_observe_count', { count: actionCounts.observe })}</span>
-          <span>{t('content_audit.policy_disabled_count', { count: actionCounts.disabled })}</span>
+        <div className={styles.counts} role="group" aria-label={t('content_audit.policy_filter_label')}>
+          {(['all', 'block', 'observe', 'disabled'] as RuleFilter[]).map((filter) => {
+            const count =
+              filter === 'all' ? draft?.rules.length || 0 : actionCounts[filter];
+            return (
+              <button
+                key={filter}
+                type="button"
+                className={`${styles.countButton} ${styles[`countButton_${filter}`]} ${ruleFilter === filter && expanded ? styles.countButtonActive : ''}`}
+                aria-pressed={ruleFilter === filter && expanded}
+                aria-expanded={ruleFilter === filter && expanded}
+                aria-controls="content-audit-policy-rule-list"
+                disabled={loading || !draft}
+                onClick={() => selectRuleFilter(filter)}
+              >
+                <span>{t(`content_audit.policy_filter_${filter}`)}</span>
+                <strong>{count}</strong>
+              </button>
+            );
+          })}
         </div>
         <div className={styles.summaryActions}>
           <Button size="sm" variant="secondary" onClick={load} loading={loading}>
@@ -196,14 +242,24 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
 
       {expanded && draft && (
         <div className={styles.workspace}>
-          <div className={styles.ruleList}>
+          <div className={styles.ruleList} id="content-audit-policy-rule-list">
             <div className={styles.ruleListHeader}>
-              <strong>{t('content_audit.policy_rules')}</strong>
+              <strong>
+                {t('content_audit.policy_rules')} · {filteredRules.length}
+              </strong>
               <Button size="sm" variant="secondary" onClick={addRule}>
                 {t('content_audit.policy_add_rule')}
               </Button>
             </div>
-            {draft.rules.map((rule, index) => (
+            {filteredRules.length === 0 && (
+              <div className={styles.emptyFilter}>
+                <span>{t('content_audit.policy_filter_empty')}</span>
+                <button type="button" onClick={() => selectRuleFilter('all')}>
+                  {t('content_audit.policy_filter_show_all')}
+                </button>
+              </div>
+            )}
+            {filteredRules.map(({ rule, index }) => (
               <button
                 type="button"
                 key={`${rule.id}-${index}`}
@@ -234,7 +290,7 @@ export function ContentAuditPolicyPanel({ onPolicyChanged }: ContentAuditPolicyP
             ))}
           </div>
 
-          {selectedRule && (
+          {selectedRule && matchesRuleFilter(selectedRule, ruleFilter) && (
             <div className={styles.editor}>
               <div className={styles.editorGrid}>
                 <label>
